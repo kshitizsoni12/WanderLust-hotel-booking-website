@@ -1,0 +1,268 @@
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+
+
+
+/* Navbar */
+.navbar {
+    height: 4rem;
+    display: flex;
+    align-items: center;
+}
+
+.fa-compass {
+    color: #fe424d;
+    font-size: 2rem;
+}
+
+.navbar-nav a {
+    color: #222;
+}
+
+
+
+
+
+/* new.ejs */
+
+.new-route-container {
+    /* text-align: center; */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.new-route-container h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+}
+
+.new-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90%;
+    max-width: 600px;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    /* gap: 1rem; */
+}
+
+.new-route-form-input {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0.75rem 0;
+}
+
+.new-form label {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.new-form input,
+.new-form textarea {
+    border-radius: 10px;
+    border: 1px solid #222;
+    padding: 0.5rem;
+    width: 100%;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+/* .new-form input:focus,
+.new-form textarea:focus {
+    outline: none;
+    border-color: #fe636d;
+    box-shadow: 0 0 5px rgba(200, 56, 56, 0.318);
+} */
+
+.price-and-country {
+    display: flex;
+    justify-content: space-between;
+    gap: 3rem;
+    width: 100%;
+}
+
+.new-form button {
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
+    background-color: #fe424d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    align-self: center;
+    margin-top: 1rem;
+}
+
+.new-form button:hover {
+    background-color: #d13842;
+}
+
+
+
+
+
+/* index route cards */
+.index-route-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    margin-top: 3rem;
+}
+
+.index-route-cards .card {
+    border: none;
+}
+
+.index-route-cards .card-img-top {
+    height: 15rem;
+    border-radius: 10px;
+    width: 100%;
+    object-fit: cover;
+    transition: 0.3s ease-out;
+}
+
+.index-route-cards .card-body {
+    min-height: 7rem;
+    padding-left: 0;
+}
+
+.index-route-cards .listing-link {
+    text-decoration: none;
+}
+
+.index-route-cards .card-img-top:hover {
+    opacity: 0.8;
+}
+
+
+
+/* show-route */
+
+.show-route-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem 1rem;
+    min-height: 100vh;
+}
+
+.show-route-card {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+}
+
+.show-route-image {
+    width: 100%;
+    height: auto;
+    border-radius: 15px;
+    object-fit: cover;
+    margin-bottom: 1.5rem;
+    max-height: 300px;
+}
+
+.show-route-heading {
+    font-size: 1.8rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.show-route-info {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+    margin-bottom: 2rem;
+}
+
+.show-route-info li {
+    font-size: 1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.show-route-info li strong {
+    color: #444;
+    margin-right: 5px;
+}
+
+.show-route-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.show-route-buttons {
+    width: 100%;
+}
+
+.show-route-btn {
+    padding: 0.5rem 1.5rem;
+    width: 10rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-decoration: none;
+    text-align: center;
+}
+
+.show-route-edit-btn {
+    background-color: #fe424d;
+    color: white;
+}
+
+.show-route-edit-btn:hover {
+    background-color: #d13842;
+}
+
+.show-route-delete-btn {
+    background-color: #2c3e50;
+    color: white;
+}
+
+.show-route-delete-btn:hover {
+    background-color: #1b2631;
+}
+
+.show-route-viewall-btn {
+    background-color: #f39c12;
+    color: white;
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.show-route-viewall-btn:hover {
+    background-color: #d68910;
+}

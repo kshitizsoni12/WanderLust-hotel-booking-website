@@ -1,0 +1,75 @@
+<% layout("/layouts/boilerplate.ejs") %>
+
+    <!-- see sare inputs ke andr "required" likha taki form bharte waqt wo blank na rahe usse bharna mandatary ho-->
+    <!-- but required se jo message show hoga that depends on browser to browser -->
+    <!-- isliye hum khudka "required" keyword set krenge using bootstrap taki hr browser me same message show ho -->
+
+    <!-- goto bootstrap->forms->validation    to read documentation  -->
+    <!-- step-1   add "novalidate" attribute and add class="needs-validation" in your form tag -->
+    <!-- step-2   add "required" attribute and class="form-control" in every input where you want that validation -->
+    <!-- step-3   add class="form-label"  in every label and add JAVASCRIPT CODE FROM DOCUMENTATION in you app.js file-->
+
+    <!-- step-4   optional if you want to show success and faillure text
+     make a div with a text and give it class="valid-feedback" to show text when correct data entered
+     or make a div with a text and give it class="nonvalid-feedback" to show text when incorrect data entered-->
+
+    <!-- also make sure bootstrap cdn are added , js file and boilerplate.ejs files are properly linked-->
+
+    <body>
+        <div class="new-route-container">
+            <h2>Create a New Listing</h2>
+            <form class="new-form needs-validation" method="post" action="/listings" novalidate>
+                <div class="new-route-form-input">
+                    <label class="form-label" for="title">Title:</label>
+                    <input class="form-control" type="text" id="title" name="title" placeholder="Add a Catchy Title"
+                        required>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a title name</div>
+                </div>
+
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="description">Description:</label>
+                    <textarea class="form-control" id="description" name="description" placeholder=""
+                        required></textarea>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a short description</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="image">Image URL:</label>
+                    <input class="form-control" type="text" id="image" name="image" placeholder="Enter image URL/Link">
+                </div>
+
+                <div class="price-and-country">
+                    <div class="new-route-form-input">
+                        <label class="form-label" for="price">Price (₹):</label>
+                        <input class="form-control" type="number" id="price" name="price" placeholder="1200" required>
+
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Please enter a valid price</div>
+                    </div>
+
+                    <div class="new-route-form-input">
+                        <label class="form-label" for="country">Country:</label>
+                        <input class="form-control" type="text" id="country" name="country" placeholder="India"
+                            required>
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Enter a valid country name</div>
+                    </div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="location">Location:</label>
+                    <input class="form-control" type="text" id="location" name="location" placeholder="Enter location"
+                        required>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Enter a valid location</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <button type="submit">Submit</button>
+                </div>
+            </form>
+        </div>
+    </body>

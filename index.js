@@ -22,9 +22,9 @@ const port = 8080;
 const path = require("path");  
 
 // requiring it to use method=PUT,DELETE,PATCH in form tag while performing CRUD operations 
-const methodOverride = require('method-override') 
-app.use(methodOverride('_method'))
-   
+const methodOverride = require('method-override');
+app.use(methodOverride('_method'));
+
 // same as includes -> used to create boilerplate or templates for our each page
 // ex: har page me navbar and footer and bootstrap/g fonts ka link wgr to same hi rhega to wo sare chize ek boilerplate.ejs me likha aur baki jgh usko import kr lunga simply
 const ejsmate = require('ejs-mate');
@@ -37,7 +37,7 @@ const mongoose = require('mongoose');
 const dburl = process.env.ATLASDB_URL;
 
 async function main() {
-    await mongoose.connect(dburl);   // wanderlust here is name of my DB rest all remains same in URL
+    await mongoose.connect("mongodb://127.0.0.1:27017/wanderlust");   // wanderlust here is name of my DB rest all remains same in URL
 }
 main().then(() => {
     console.log("connected to database successfully")
@@ -46,8 +46,10 @@ main().then(() => {
 
 
 // writing schema in folder named -> 'models' ,see there in listing.js
-// now importing schema here
-const Listing = require("./models/listing.js") 
+// now importing listing schema here
+const Listing = require("./models/listing.js"); 
+// importing review schema here
+const Review = require("./models/review.js");
 
 
 // setting view engine to ejs -> setup for using EJS
@@ -62,7 +64,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
 // importing schema for server side form validation
-const {listingSchema} = require("./schema.js");
+const {listingSchema , reviewSchema} = require("./schema.js");
 
 app.listen(port, () => {
     console.log("listening at port 8080")
@@ -72,7 +74,7 @@ app.listen(port, () => {
 // Now inserting initial sample data into our database in seprate folder init go see there then come back
 
 
-// TILL HERE THE CODE ABOVE WILL BW IN EVERY FILE OR EVERY WEBSITE
+// TILL HERE THE CODE ABOVE WILL BE SAME IN EVERY FILE OR EVERY WEBSITE
 
 
 
@@ -111,6 +113,18 @@ const validatelisting = (req,res,next) => {
     }
 }
 
+const validatereview = (req,res,next) => {
+    let {error} = reviewSchema.validate(req.body);
+    if(error){
+        let errMsg = error.details.map(el => el.message).join(",");
+        throw new ExpressError(400, errMsg);
+    }else{
+        next();
+    }
+}
+
+
+
 
 // index route
 app.get("/listings", asyncwrap(async (req, res) => {
@@ -147,22 +161,25 @@ app.post("/listings",validatelisting, asyncwrap(async (req, res) => {
 // show route
 app.get("/listings/:id", asyncwrap(async (req, res) => {
     let { id } = req.params;
-    const idlisting = await Listing.findById(id);
+    //populate("reviews") is a mongoose method which is used here to get all the reviews of that particular listing whose id is given in url , basically it fetches all the details (rating and comment) of reviews whose object ids are stored in "reviews" array of that particular listing 
+    // without populate method we will only get array of object ids of reviews not their details such as (comment and rating)
+    const idlisting = await Listing.findById(id).populate("reviews");
     res.render("listings/show.ejs", { idlisting })
 }))
 
 // edit route
 app.get("/listings/:id/edit", asyncwrap(async (req, res) => {
-    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
-    //so to handle form validations from server side
-    //thats why we called our function "validatelisting" above see there
-   
     let { id } = req.params;
     const idlisting = await Listing.findById(id);
     res.render("listings/edit.ejs", { idlisting })
 }))
 
 app.put("/listings/:id",validatelisting , asyncwrap(async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+
+    
     let { id } = req.params;
     let { title, description, image, price, location, country } = req.body;
     await Listing.findByIdAndUpdate(id, {
@@ -182,6 +199,48 @@ app.delete("/listings/:id", asyncwrap(async (req, res) => {
     await Listing.findByIdAndDelete(id);
     res.redirect("/listings");
 }))
+
+
+
+
+
+
+
+
+
+
+// Review route
+
+// post route to add review for a particular listing
+app.post("/listings/:id/reviews", validatereview, asyncwrap(async(req,res)=>{
+    let {id} = req.params;
+    let idlisting = await Listing.findById(id);
+
+    // creating new review from review schema
+    // jo show.ejs me review form banaya tha see there name="review[comment]" and name="review[rating]" asa likha hai it means ki req.body ke andar ek object aayega jiska naam hoga "review" or uske andar do fields hongi comment and rating
+    let newreview = new Review(req.body.review);
+
+    // pushing object id of new review into "reviews" array of that particular listing
+    idlisting.reviews.push(newreview);
+
+    // saving both review and listing
+    await newreview.save();
+    await idlisting.save();
+
+    res.redirect(`/listings/${id}`);
+}))
+
+// delete route to delete a review 
+app.delete("/listings/:id/reviews/:reviewid", asyncwrap(async(req,res)=>{
+    let {id,reviewid} = req.params;
+    // first we will find the listing from which we want to delete the review
+    // the $pull operator removes from an existing array all instances of a value or values that match a specified condition.
+    await Listing.findByIdAndUpdate(id,{$pull: {reviews: reviewid}});  //reviews array me se wo id delete krdo jo id, reviewid ke barabar ho
+    // now we will delete the review from reviews collection also
+    await Review.findByIdAndDelete(reviewid);
+    res.redirect(`/listings/${id}`);
+}))
+
 
 
 

@@ -11,7 +11,8 @@ const reviewschema = new Schema({
     rating : {
         type : Number,
         min : 1,
-        max : 5
+        max : 5,
+        default : 3
     },
     createdat : {
         type : Date,
@@ -19,8 +20,9 @@ const reviewschema = new Schema({
     }
 })
 
+// now we will create model->"review" for this schema and export it
 const review = mongoose.model("review", reviewschema);
 module.exports = review;
 
-// Now we want review that each listing can have multiple reviews , so we will import this review schema in listing schema and will use it as an array of subdocuments in listing schema
+// Now we want that each listing can have multiple reviews , so we will import this review schema in listing schema and will use it as an array of subdocuments in listing schema
 // ---------we will store object Ids of reviews in listing schema---------

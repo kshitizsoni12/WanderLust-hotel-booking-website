@@ -18,3 +18,13 @@ module.exports.listingSchema = Joi.object({
     price: Joi.number().required().min(0),
     image: Joi.string().allow("", null)
 });
+
+
+// review schema validation using JOI same as above because we also want that no one should be able to submit review form without rating and comment from server side 
+module.exports.reviewSchema = Joi.object({
+    //a review object with rating and comment fields
+    review: Joi.object({
+        rating: Joi.number().required().min(1).max(5),
+        comment: Joi.string().required()
+    }).required()
+})

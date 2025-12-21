@@ -41,4 +41,106 @@
             </div>
         </div>
 
+
+        <!-- review section -->
+        <!-- koi bhi form ko bina rating and comment likhe submit na kare ye ensure krne kliye we will do both client-side and server-side validation -->
+        <!-- client-side validation is done in the form itself(to learn how -> read the comments in new.ejs) & server-side validation is done using JOI -->
+        <!-- for server side validation->1.make schema using JOI in schema.js->2.import it in index.js and write a function similar to validatelisting ->3.pass this function as a middleware in review route -->
+        <div class="show-route-container">
+            <div class="show-route-card review-card">
+                <h4 class="show-route-heading">Leave a Review</h4>
+
+                <!-- after clicking the submit button the form will be submitted to route /listings/:id/reviews -->
+                <form class="needs-validation review-form" action="/listings/<%=idlisting._id%>/reviews" method="post" novalidate>
+
+                    <!-- Rating -->
+                        <div class="review-form-group">
+                            <label class="review-label">Rating</label>
+
+                    <div class="star-rating" >
+                    <input type="radio" name="review[rating]" id="star5" value="5">
+                    <label for="star5">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star4" value="4">
+                    <label for="star4">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star3" value="3">
+                    <label for="star3">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star2" value="2">
+                    <label for="star2">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star1" value="1" >
+                    <label for="star1">&#9733;</label>
+                    
+                </div>
+                
+            </div>
+
+            <!-- Comment -->
+            <div class="review-form-group">
+                <label for="comment" class="review-label">Your Review</label>
+                <textarea
+                    id="comment"
+                    name="review[comment]"
+                    rows="4"
+                    placeholder="Share your experience..."
+                    required></textarea>
+                    <div class="invalid-feedback">Please write something before submitting.</div>
+            </div>
+
+            <!-- Button -->
+            <button type="submit" class="show-route-btn show-route-edit-btn review-submit-btn">
+                Submit Review
+            </button>
+
+            </form>
+            </div>
+            </div>
+        <hr>
+
+
+        <!-- All Reviews Section where all reviews are displayed of this listing -->
+        <!-- All Reviews Section -->
+<div class="reviews-section container my-5">
+
+    <h4 class="reviews-heading mb-4">All Reviews</h4>
+
+    <div class="row g-4">
+        <% for(let review of idlisting.reviews){ %>
+
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="review-card">
+
+                    <div class="review-card-body">
+                        <p class="review-author">Guest</p>
+
+                        <!-- Star Rating Display -->
+                        <div class="review-stars">
+                            <% for(let i = 1; i <= 5; i++){ %>
+                                <span class="<%= i <= review.rating ? 'filled-star' : 'empty-star' %>">
+                                    &#9733;
+                                </span>
+                            <% } %>
+                        </div>
+
+                        <p class="review-text">
+                            <%= review.comment %>
+                        </p>
+
+                        <!-- Now we will add a delete button -> its process is -> 1.on clicking delete, it will send a DELETE request to /listings/:id/reviews/:reviewId to delete the review -->
+                         <form action="/listings/<%=idlisting._id%>/reviews/<%=review._id%>?_method=DELETE" method="post">
+                            <button class="review-delete-btn">Delete Review</button>
+                         </form>
+                    </div>
+
+                </div>
+            </div>
+
+        <% } %>
+    </div>
+
+</div>
+
+
     </body>

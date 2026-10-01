@@ -49,13 +49,6 @@ main().then(() => {
 
 
 
-// writing schema in folder named -> 'models' ,see there in listing.js
-// now importing listing schema here
-const Listing = require("./models/listing.js"); 
-// importing review schema here
-const Review = require("./models/review.js");
-
-
 // setting view engine to ejs -> setup for using EJS
 app.set("view engine", "ejs");         
 app.set("views", path.join(__dirname, "views"));
@@ -67,8 +60,6 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));   
 app.use(express.json());
 
-// importing schema for server side form validation
-const {listingSchema , reviewSchema} = require("./schema.js");
 
 app.listen(port, () => {
     console.log("listening at port 8080");
@@ -91,160 +82,18 @@ app.get("/", (req, res) => {
     res.render("listings/home.ejs");
 })
 
+// --------------------------------------------------------------------------------------------------
+//listing routes are in seprate file named listings.js inside routes folder , so importing it here
+const listingRoutes = require("./routes/listing.js");
+// now using it here
+app.use("/listings",listingRoutes);
 
 
-//  Now as we are using databse we may get async errors ,like - price me number ke jgh string daal diya form me ___OR___ galat _id daal diya url me 
-// so to handle such async errors we are making our wrapasync.js and custom error class inside UTILS folder
-// importing custom error class
-const ExpressError = require("./utils/ExpressError.js")
-// importing here asyncwrap function
-const asyncwrap = require("./utils/wrapasync.js");
-const { error } = require("console");
-
-
-// NOW jitne bhi async code hai sabko wrap krdo or send krdo as a input inside asyncwrap() function
-
-
-//postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
-//so to handle form validations from server side
-const validatelisting = (req,res,next) => {
-    let {error} = listingSchema.validate(req.body);
-    if(error){
-        let errMsg = error.details.map(el => el.message).join(",");
-        throw new ExpressError(400, errMsg);
-    }else{
-        next();
-    }
-}
-
-const validatereview = (req,res,next) => {
-    let {error} = reviewSchema.validate(req.body);
-    if(error){
-        let errMsg = error.details.map(el => el.message).join(",");
-        throw new ExpressError(400, errMsg);
-    }else{
-        next();
-    }
-}
-
-
-
-
-// index route
-app.get("/listings", asyncwrap(async (req, res) => {
-    const allListings = await Listing.find({});
-    res.render("listings/index.ejs", { allListings })
-}))
-
-//new route
-app.get("/listings/new", (req, res) => {
-    res.render("listings/new.ejs");
-})
-
-app.post("/listings",validatelisting, asyncwrap(async (req, res) => {
-    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
-    //so to handle form validations from server side
-    //thats why we called our function "validatelisting" above see there
-    
-
-
-    let { title, description, image, price, location, country } = req.body;
-    let newlisting = new Listing({
-        title: title,
-        description: description,
-        image: image,
-        price: price,
-        location: location,
-        country: country,
-    })
-    await newlisting.save();
-    res.redirect("/listings")
-}))
-
-
-// show route
-app.get("/listings/:id", asyncwrap(async (req, res) => {
-    let { id } = req.params;
-    //populate("reviews") is a mongoose method which is used here to get all the reviews of that particular listing whose id is given in url , basically it fetches all the details (rating and comment) of reviews whose object ids are stored in "reviews" array of that particular listing 
-    // without populate method we will only get array of object ids of reviews not their details such as (comment and rating)
-    const idlisting = await Listing.findById(id).populate("reviews");
-    res.render("listings/show.ejs", { idlisting })
-}))
-
-// edit route
-app.get("/listings/:id/edit", asyncwrap(async (req, res) => {
-    let { id } = req.params;
-    const idlisting = await Listing.findById(id);
-    res.render("listings/edit.ejs", { idlisting })
-}))
-
-app.put("/listings/:id",validatelisting , asyncwrap(async (req, res) => {
-    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
-    //so to handle form validations from server side
-    //thats why we called our function "validatelisting" above see there
-
-    
-    let { id } = req.params;
-    let { title, description, image, price, location, country } = req.body;
-    await Listing.findByIdAndUpdate(id, {
-        title: title,
-        description: description,
-        image: image,
-        price: price,
-        location: location,
-        country: country,
-    });
-    res.redirect(`/listings/${id}`);
-}))
-
-// delete route
-app.delete("/listings/:id", asyncwrap(async (req, res) => {
-    let { id } = req.params;
-    await Listing.findByIdAndDelete(id);
-    res.redirect("/listings");
-}))
-
-
-
-
-
-
-
-
-
-
-// Review route
-
-// post route to add review for a particular listing
-app.post("/listings/:id/reviews", validatereview, asyncwrap(async(req,res)=>{
-    let {id} = req.params;
-    let idlisting = await Listing.findById(id);
-
-    // creating new review from review schema
-    // jo show.ejs me review form banaya tha see there name="review[comment]" and name="review[rating]" asa likha hai it means ki req.body ke andar ek object aayega jiska naam hoga "review" or uske andar do fields hongi comment and rating
-    let newreview = new Review(req.body.review);
-
-    // pushing object id of new review into "reviews" array of that particular listing
-    idlisting.reviews.push(newreview);
-
-    // saving both review and listing
-    await newreview.save();
-    await idlisting.save();
-
-    res.redirect(`/listings/${id}`);
-}))
-
-// delete route to delete a review 
-app.delete("/listings/:id/reviews/:reviewid", asyncwrap(async(req,res)=>{
-    let {id,reviewid} = req.params;
-    // first we will find the listing from which we want to delete the review
-    // the $pull operator removes from an existing array all instances of a value or values that match a specified condition.
-    await Listing.findByIdAndUpdate(id,{$pull: {reviews: reviewid}});  //reviews array me se wo id delete krdo jo id, reviewid ke barabar ho
-    // now we will delete the review from reviews collection also
-    await Review.findByIdAndDelete(reviewid);
-    res.redirect(`/listings/${id}`);
-}))
-
+//review routes are in seprate file named review.js inside routes folder , so importing it here
+const reviewRoutes = require("./routes/review.js");
+// now using it here
+app.use("/listings/:id/reviews",reviewRoutes);
+// ---------------------------------------------------------------------------------------------------
 
 
 

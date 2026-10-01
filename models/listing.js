@@ -1,3 +1,4 @@
+// here we are creating a schema for our listings collection in our database
 const mongoose = require('mongoose');
 const review = require('./review');
 

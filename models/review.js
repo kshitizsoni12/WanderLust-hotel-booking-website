@@ -2,6 +2,7 @@
 
 const mongoose = require('mongoose');
 const { Schema } = mongoose;
+
 // we dont need to setup connection here again, as we are just writing schema here , not using any insert/update/delete functionality of mongoose
 
 const reviewschema = new Schema({
@@ -14,7 +15,7 @@ const reviewschema = new Schema({
         max : 5,
         default : 3
     },
-    createdat : {
+    createdate : {
         type : Date,
         default : Date.now()
     }

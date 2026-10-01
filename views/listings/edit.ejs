@@ -1,9 +1,10 @@
 <% layout("/layouts/boilerplate.ejs") %>
-
+<!-- same to same form as new.ejs so go read there to understand -->
     <body>
 
         <div class="new-route-container">
             <h2>Edit your Listing</h2>
+            <!-- method = put because we are updating an existing listing and sending it to server at /listings/:id -->
             <form class="new-form needs-validation" novalidate method="post"
                 action="/listings/<%=idlisting._id%>?_method=PUT">
                 <div class="new-route-form-input">

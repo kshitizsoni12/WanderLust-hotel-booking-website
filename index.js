@@ -21,18 +21,20 @@ const port = 8080;
 // requiring path to join to paths of files
 const path = require("path");  
 
-// requiring it to use method=PUT,DELETE,PATCH in form tag while performing CRUD operations 
+//normally in form tag we can only use method=GET or POST but for CRUD operations we need to use PUT,DELETE,PATCH also.
+//so requiring it to use method=PUT,DELETE,PATCH in form tag while performing CRUD operations 
 const methodOverride = require('method-override');
 app.use(methodOverride('_method'));
 
-// same as includes -> used to create boilerplate or templates for our each page
+// similar as includes -> used to create boilerplate or layouts for our each page
 // ex: har page me navbar and footer and bootstrap/g fonts ka link wgr to same hi rhega to wo sare chize ek boilerplate.ejs me likha aur baki jgh usko import kr lunga simply
 const ejsmate = require('ejs-mate');
 app.engine("ejs", ejsmate);
 
+
+
 //importing mongoose and setting connection with databse
 const mongoose = require('mongoose');
-
 // url of cloud database from .env file
 const dburl = process.env.ATLASDB_URL;
 
@@ -43,6 +45,8 @@ main().then(() => {
     console.log("connected to database successfully")
 })
     .catch(err => console.log(err));
+
+
 
 
 // writing schema in folder named -> 'models' ,see there in listing.js
@@ -59,7 +63,7 @@ app.set("views", path.join(__dirname, "views"));
 // telling that my CSS n JS files are in public folder-> and i can use them from anywhere
 app.use(express.static(path.join(__dirname, "public")));    
 
-//Code so that js can read json or bson files coming from DB
+//Code so that js can read json or url encoded files coming from DB
 app.use(express.urlencoded({ extended: true }));   
 app.use(express.json());
 
@@ -67,7 +71,7 @@ app.use(express.json());
 const {listingSchema , reviewSchema} = require("./schema.js");
 
 app.listen(port, () => {
-    console.log("listening at port 8080")
+    console.log("listening at port 8080");
 })
 
 

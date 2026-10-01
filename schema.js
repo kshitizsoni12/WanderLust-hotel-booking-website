@@ -27,4 +27,6 @@ module.exports.reviewSchema = Joi.object({
         rating: Joi.number().required().min(1).max(5),
         comment: Joi.string().required()
     }).required()
-})
+});
+
+// now we will import this reviewSchema in index.js and will create a function similar to validatelisting function there and will use that function as middleware in review route in index.js

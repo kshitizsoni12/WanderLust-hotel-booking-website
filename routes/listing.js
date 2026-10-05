@@ -9,9 +9,11 @@ const router = express.Router();
 //5.require all the models and schema and utils which are used in this file(by the routes) 
 //6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
 
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
 
 const Listing = require("../models/listing.js"); 
-const {listingSchema , reviewSchema} = require("../schema.js");
+const {listingSchema} = require("../schema.js");
 const ExpressError = require("../utils/ExpressError.js")
 const asyncwrap = require("../utils/wrapasync.js");
 
@@ -98,7 +100,7 @@ router.put("/:id",validatelisting , asyncwrap(async (req, res) => {
 }))
 
 // delete route
-router.delete(" /:id", asyncwrap(async (req, res) => {
+router.delete("/:id", asyncwrap(async (req, res) => {
     let { id } = req.params;
     await Listing.findByIdAndDelete(id);
     res.redirect("/listings");

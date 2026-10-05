@@ -11,6 +11,9 @@ const router = express.Router({ mergeParams: true });
 //5.require all the models and schema and utils which are used in this file(by the routes) 
 //6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
 
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
+
 const Listing = require('../models/listing.js');
 const Review = require('../models/review.js');
 const { listingSchema, reviewSchema } = require('../schema.js');

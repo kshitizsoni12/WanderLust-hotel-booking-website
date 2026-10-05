@@ -8,8 +8,8 @@ const listingschema = new mongoose.Schema({
     image: {
         type: String,
         //here we are setting a default image if user do not provide any image url
-        default: "https://images.unsplash.com/vector-1745695275676-ae261124fea9?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
-        set: (v) => v === "" ? "https://images.unsplash.com/vector-1745695275676-ae261124fea9?q=80&w=880&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" : v,
+        default: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxkCoVgzcQBR2gm-5O7rZHG91jPS1YMgHcIj1gORYvKg&s=10",
+        set: (v) => v === "" ? "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxkCoVgzcQBR2gm-5O7rZHG91jPS1YMgHcIj1gORYvKg&s=10" : v,
     },
     price: { type: Number, required: true },
     location: { type: String, required: true },

@@ -60,6 +60,9 @@ router.post("/",validatelisting, asyncwrap(async (req, res) => {
         country: country,
     })
     await newlisting.save();
+
+    //adding flash message -> "new listing added successfully"
+    req.flash("success", "new listing added successfully");  //key="success"
     res.redirect("/listings")
 }))
 
@@ -70,6 +73,11 @@ router.get("/:id", asyncwrap(async (req, res) => {
     //populate("reviews") is a mongoose method which is used here to get all the reviews of that particular listing whose id is given in url , basically it fetches all the details (rating and comment) of reviews whose object ids are stored in "reviews" array of that particular listing 
     // without populate method we will only get array of object ids of reviews not their details such as (comment and rating)
     const idlisting = await Listing.findById(id).populate("reviews");
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
     res.render("listings/show.ejs", { idlisting })
 }))
 
@@ -77,6 +85,11 @@ router.get("/:id", asyncwrap(async (req, res) => {
 router.get("/:id/edit", asyncwrap(async (req, res) => {
     let { id } = req.params;
     const idlisting = await Listing.findById(id);
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
     res.render("listings/edit.ejs", { idlisting })
 }))
 

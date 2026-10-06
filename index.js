@@ -8,6 +8,8 @@
 // 7.joi
 // 8.dotenv
 // 9.connect-mongo
+// 10.express-session
+// 11.npm i connect-flash
 
 
 // requiring dotenv to use .env file
@@ -59,6 +61,31 @@ app.use(express.static(path.join(__dirname, "public")));
 //Code so that js can read json or url encoded files coming from DB
 app.use(express.urlencoded({ extended: true }));   
 app.use(express.json());
+
+// requiring express-session
+const session = require("express-session");
+// setting up session options and using it in app
+const sessionOptions = {
+    secret: "thisshouldbeabettersecret!",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        expires : Date.now() + 1000 * 60 * 60 * 24 * 7, // cookie will expire in 7 days
+        maxAge : 1000 * 60 * 60 * 24 * 7, // cookie will expire in 7 days
+        httpOnly : true, // cookie cannot be accessed by client side js
+    }
+};
+app.use(session(sessionOptions));
+
+// requiring connect-flash to show flash messages (Implementing -> whenever a new listing is added, a flash message will be shown)
+const flash = require("connect-flash");
+app.use(flash());
+//middleware to set flash messages in res.locals so that we can access them in all ejs files
+app.use((req, res, next) => {
+    res.locals.success = req.flash("success");
+    res.locals.error = req.flash("error");
+    next();
+});
 
 
 app.listen(port, () => {

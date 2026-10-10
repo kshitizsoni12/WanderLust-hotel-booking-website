@@ -783,3 +783,59 @@ And the overall idea is:
 > **Session → stores user-specific data**  
 > **Flash → temporary message stored in session**  
 > **res.locals → makes data easily available to EJS**
+
+
+
+
+
+🍪 cookie.expires
+expires decides when the cookie should be deleted by the browser.
+Example:
+cookie: {
+    expires: Date.now() + 1000 * 60 * 60 * 24 * 7
+}
+
+This means:
+Current time + 7 days
+     ↓
+Cookie expires
+
+So the website can decide how long it wants to remember the user.
+Example
+LinkedIn → cookie expires after 30 days
+             ↓
+        User stays logged in
+
+Another website → cookie expires after 7 days
+                  ↓
+             User must login again
+
+
+What happens by default?
+If you don't specify an expiration time, the cookie is generally a session cookie.
+Open browser
+     ↓
+Cookie exists
+     ↓
+Close browser
+     ↓
+Cookie is deleted
+
+So the user may need to log in again when they reopen the browser.
+
+
+maxAge
+Instead of specifying an exact expiration date, we can say:
+"Keep this cookie for X milliseconds."
+
+maxAge: 1000 * 60 * 60 * 24 * 7
+
+Means:
+1000 ms
+× 60       = 1 minute
+× 60       = 1 hour
+× 24       = 1 day
+× 7        = 7 days
+
+So:
+maxAge = 7 days

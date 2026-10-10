@@ -9,7 +9,11 @@
 // 8.dotenv
 // 9.connect-mongo
 // 10.express-session
-// 11.npm i connect-flash
+// 11.connect-flash
+// 12.passport
+// 13.passport-local
+// 14.passport-local-mongoose
+
 
 
 // requiring dotenv to use .env file
@@ -62,6 +66,8 @@ app.use(express.static(path.join(__dirname, "public")));
 app.use(express.urlencoded({ extended: true }));   
 app.use(express.json());
 
+
+// ------------------------------Session and Flash Messages----------------------------------
 // requiring express-session
 const session = require("express-session");
 // setting up session options and using it in app
@@ -77,6 +83,7 @@ const sessionOptions = {
 };
 app.use(session(sessionOptions));
 
+
 // requiring connect-flash to show flash messages (Implementing -> whenever a new listing is added, a flash message will be shown)
 const flash = require("connect-flash");
 app.use(flash());
@@ -88,29 +95,40 @@ app.use((req, res, next) => {
 });
 
 
+// ------------------------------Authentication Part------------------------------
+// requiring passport and passport-local for authentication
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user.js"); // requiring user model to use it in passport-local-mongoose
+
+app.use(passport.initialize());  // a middleware for initializing passport
+app.use(passport.session());   // passport.session -> a web applixation needs the ability to indentify user as they browse from page to page, so we need to use session to store user info in session and passport.session() will help us to do that
+passport.use(new LocalStrategy(User.authenticate())); // User.authenticate() -> a method provided by passport-local-mongoose to authenticate user
+
+passport.serializeUser(User.serializeUser()); // serializeUser -> a method provided by passport-local-mongoose to serialize user info into session
+passport.deserializeUser(User.deserializeUser()); // deserializeUser -> a method provided by passport-local-mongoose to deserialize user info from session
+
+
+
 app.listen(port, () => {
     console.log("listening at port 8080");
 })
 
 
-// Now inserting initial sample data into our database in seprate folder init go see there then come back
 
+// Now inserting initial sample data into our database in seprate folder init go see there then come back
 
 // TILL HERE THE CODE ABOVE WILL BE SAME IN EVERY FILE OR EVERY WEBSITE
 
-
-
-
-
+// -------------------------------------------------------------------------------------------
 // NOW CODES SPECIFICALLY FOR THIS WEBSITE
-
 // home route
 app.get("/", (req, res) => {
     res.render("listings/home.ejs");
 })
 
 // --------------------------------------------------------------------------------------------------
-//listing routes are in seprate file named listings.js inside routes folder , so importing it here
+//listing routes are in seprate file named listing.js inside routes folder , so importing it here
 const listingRoutes = require("./routes/listing.js");
 // now using it here
 app.use("/listings",listingRoutes);
@@ -120,10 +138,13 @@ app.use("/listings",listingRoutes);
 const reviewRoutes = require("./routes/review.js");
 // now using it here
 app.use("/listings/:id/reviews",reviewRoutes);
+
+
+//user routes are in seprate file named user.js inside routes folder , so importing it here
+const userRoutes = require("./routes/user.js");
+// now using it here
+app.use("/", userRoutes);
 // ---------------------------------------------------------------------------------------------------
-
-
-
 
 
 // IF user enters any other route than above routes, then to show "page not found" error

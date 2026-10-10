@@ -444,3 +444,66 @@ body {
 
 
 
+/* signup.ejs and login.ejs */
+
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-container h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90%;
+    max-width: 500px;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.auth-form-input {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0.75rem 0;
+}
+
+.auth-form label {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.auth-form input {
+    border-radius: 10px;
+    border: 1px solid #222;
+    padding: 0.5rem;
+    width: 100%;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.auth-form button {
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
+    background-color: #fe424d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    align-self: center;
+    margin-top: 1rem;
+}
+
+.auth-form button:hover {
+    background-color: #d13842;
+}

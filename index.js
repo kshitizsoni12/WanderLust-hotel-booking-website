@@ -24,7 +24,7 @@ require('dotenv').config();
 //requiring express
 const express = require("express");    
 const app = express();
-const port = 8080;
+const PORT = process.env.PORT || 8080;
  
 // requiring path to join to paths of files
 const path = require("path");  
@@ -129,9 +129,8 @@ app.use((req, res, next) => {
 
 
 
-
-app.listen(port, () => {
-    console.log("listening at port 8080");
+app.listen(PORT, () => {
+    console.log(`listening at port ${PORT}`);
 })
 
 

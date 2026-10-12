@@ -1,3 +1,4 @@
+#Press Ctrl+k then V
 # Part 1 — What is State?
 
 **State = information about what happened before and needs to be remembered for future requests.**

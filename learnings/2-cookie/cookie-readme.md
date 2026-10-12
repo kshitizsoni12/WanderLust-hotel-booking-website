@@ -1,3 +1,4 @@
+#Press Ctrl+k then V
 <!-- STUDY COOKIES CODE FROM LEARNING COOKIES FOLDER -->
 
 # Web Cookies 🍪

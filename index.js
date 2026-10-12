@@ -133,7 +133,9 @@ app.listen(PORT, () => {
     console.log(`listening at port ${PORT}`);
 })
 
-
+app.get("/", (req, res) => {
+    res.redirect("/listings");
+});
 
 // Now inserting initial sample data into our database in seprate folder init go see there then come back
 

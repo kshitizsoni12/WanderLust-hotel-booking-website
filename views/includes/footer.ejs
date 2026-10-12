@@ -1,14 +1,50 @@
-<footer class="f-info ">
-    <div class="f-info-socials">
-        <i class="fa-brands fa-square-facebook"></i>
-        <i class="fa-brands fa-square-instagram"></i>
-        <i class="fa-brands fa-linkedin"></i>
-    </div>
+<footer class="wl-footer">
+    <div class="container">
+        <div class="row g-4">
 
-    <div>&copy; Wanderlust Private Limited</div>
+            <!-- Brand + socials -->
+            <div class="col-12 col-md-5">
+                <a class="wl-footer-brand" href="/listings">
+                    <i class="fa-regular fa-compass"></i>
+                    <span>Wanderlust</span>
+                </a>
+                <p class="wl-footer-tagline">
+                    Discover unique stays, from beachfront cottages to mountain cabins, and book your next getaway.
+                </p>
+                <div class="wl-footer-socials">
+                    <a href="https://www.youtube.com/@kshitizsoni5040" target="_blank" rel="noopener" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                    <a href="https://www.instagram.com/_kshitizsoni/" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="https://www.linkedin.com/in/kshitiz-soni-828b69324/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                </div>
+            </div>
 
-    <div class="f-info-links">
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
+            <!-- Explore -->
+            <div class="col-6 col-md-3">
+                <h6 class="wl-footer-heading">Explore</h6>
+                <ul class="wl-footer-links">
+                    <li><a href="/listings">All Listings</a></li>
+                    <li><a href="/listings/new">Add new Listing</a></li>
+                    <% if (!currentUser) { %>
+                        <li><a href="/login">Login</a></li>
+                        <li><a href="/signup">Sign up</a></li>
+                    <% } %>
+                </ul>
+            </div>
+
+            <!-- Legal -->
+            <div class="col-6 col-md-4">
+                <h6 class="wl-footer-heading">Company</h6>
+                <ul class="wl-footer-links">
+                    <li><a href="/privacy">Privacy</a></li>
+                    <li><a href="/terms">Terms</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div class="wl-footer-bottom">
+            <span>&copy; <%= new Date().getFullYear() %> Wanderlust Private Limited. All rights reserved.</span>
+            <span>Made with <i class="fa-solid fa-heart"></i> by Kshitiz</span>
+        </div>
     </div>
 </footer>

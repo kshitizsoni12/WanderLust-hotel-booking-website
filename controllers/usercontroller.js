@@ -22,7 +22,6 @@ module.exports.signUp = async (req, res, next) => {
 
 module.exports.logIn = (req,res) =>{
     //req.user returns email, username, _id, and other info of the user who is logged in
-    console.log(req.user);
     req.flash("success", "Welcome to Wanderlust");
     res.redirect(res.locals.redirectUrl || "/listings"); //if user was redirected to login page from some other page then after login he will be redirected back to that page, otherwise he will be redirected to same page from which he was redirected to login page
 }

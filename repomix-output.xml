@@ -76,8 +76,6 @@ routes/
   listing.js
   review.js
   user.js
-uploads/
-  22f31ec3f8adfaa97be0e6d2b10a7598
 utils/
   ExpressError.js
   wrapasync.js
@@ -90,7 +88,6 @@ views/
     boilerplate.ejs
   listings/
     edit.ejs
-    home.ejs
     index.ejs
     new.ejs
     show.ejs
@@ -113,9 +110,21 @@ This section contains the contents of the repository's files.
 const Listing = require('../models/listing');
 
 // index route
+//added search functionality by claude AI
 module.exports.index = async (req, res) => {
-    const allListings = await Listing.find({});
-    res.render("listings/index.ejs", { allListings })
+    // coerce to a trimmed, length-limited string
+    const q = String(req.query.q || "").trim().slice(0, 50);
+
+    let filter = {};
+    if (q) {
+        // escape regex special characters so input like "(" or "*" can't break the query
+        const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(safe, "i"); // "i" = case-insensitive
+        filter = { $or: [{ title: regex }, { location: regex }, { country: regex }] };
+    }
+
+    const allListings = await Listing.find(filter);
+    res.render("listings/index.ejs", { allListings, q });
 }
 
 // new route
@@ -129,7 +138,8 @@ module.exports.createListing = async (req, res) => {
     //so to handle form validations from server side
     //thats why we called our function "validatelisting" above see there
     
-    const newListing = new Listing(req.body.listing);
+    const { title, description, price, location, country } = req.body;
+    const newListing = new Listing({ title, description, price, location, country });
     newListing.owner = req.user._id;
 
     if (req.file) {
@@ -176,7 +186,8 @@ module.exports.updateListing = async (req, res) => {
 
     
     const { id } = req.params;
-    const listing = await Listing.findByIdAndUpdate(id, { ...req.body.listing });
+    const { title, description, price, location, country } = req.body;
+    const listing = await Listing.findByIdAndUpdate(id, { title, description, price, location, country }, { new: true });
 
     // only replace the image if a new file was uploaded
     if (req.file) {
@@ -257,7 +268,6 @@ module.exports.signUp = async (req, res, next) => {
 
 module.exports.logIn = (req,res) =>{
     //req.user returns email, username, _id, and other info of the user who is logged in
-    console.log(req.user);
     req.flash("success", "Welcome to Wanderlust");
     res.redirect(res.locals.redirectUrl || "/listings"); //if user was redirected to login page from some other page then after login he will be redirected back to that page, otherwise he will be redirected to same page from which he was redirected to login page
 }
@@ -271,503 +281,6 @@ module.exports.logOut = (req,res,next)=>{
         res.redirect("/listings");
     });
 }
-</file>
-
-<file path="routes/beforeMVCreview.js">
-//1. require express and creating router
-//2. replace all app.****() with router.****()
-//3. removed /listings/:id/reviews from all routes because we are already using it in app.use("/listings/:id/reviews",reviewRoutes); in index.js
-//4. export router at the end of file
-
-// New problem : id of listing is not available in review.js file because we are using it in app.use("/listings/:id/reviews",reviewRoutes); so to make it available in review.js file we will use merge params:true in review.js file
-// ie: instead of just "router = express.Router();" we will use "router = express.Router({ mergeParams: true });"
-const express = require('express');
-const router = express.Router({ mergeParams: true }); 
-
-//5.require all the models and schema and utils which are used in this file(by the routes) 
-//6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
-
-const methodOverride = require('method-override');
-router.use(methodOverride('_method'));
-
-const Listing = require('../models/listing.js');
-const Review = require('../models/review.js');
-const asyncwrap = require("../utils/wrapasync.js");
-const { validatereview } = require("../middleware.js");  //importing validatereview function from middleware.js to use it here in our routes to validate the review form data from server side using joi schema
-const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
-const { isReviewAuthor } = require("../middleware.js");  //importing isReviewAuthor function from middleware.js to use it here in our routes to check if user is the author of this review or not
-
-
-
-
-// our all review routes
-// post route to add review for a particular listing
-router.post("/",isLoggedIn, validatereview, asyncwrap(async(req,res)=>{
-    
-    let {id} = req.params;
-    let idlisting = await Listing.findById(id);
-
-    // creating new review from review schema
-    // jo show.ejs me review form banaya tha see there name="review[comment]" and name="review[rating]" asa likha hai it means ki req.body ke andar ek object aayega jiska naam hoga "review" or uske andar do fields hongi comment and rating
-    let newreview = new Review(req.body.review);
-    newreview.author = req.user._id;  //storing the id of the user who created this review in the "author" field of that particular review
-
-    // pushing object id of new review into "reviews" array of that particular listing
-    idlisting.reviews.push(newreview);
-
-    // saving both review and listing
-    await newreview.save();
-    await idlisting.save();
-
-    res.redirect(`/listings/${id}`);
-}))
-
-// delete route to delete a review 
-router.delete("/:reviewid",isLoggedIn ,isReviewAuthor ,asyncwrap(async(req,res)=>{
-    let {id,reviewid} = req.params;
-    // first we will find the listing from which we want to delete the review
-    // the $pull operator removes from an existing array all instances of a value or values that match a specified condition.
-    await Listing.findByIdAndUpdate(id,{$pull: {reviews: reviewid}});  //reviews array me se wo id delete krdo jo id, reviewid ke barabar ho
-    // now we will delete the review from reviews collection also
-    await Review.findByIdAndDelete(reviewid);
-    res.redirect(`/listings/${id}`);
-}))
-
-
-module.exports = router;
-</file>
-
-<file path="routes/beforeMVCuser.js">
-const express = require("express");
-const router = express.Router();
-const User = require("../models/user.js");
-const asyncwrap = require("../utils/wrapasync.js");
-const passport = require("passport");
-const {saveRedirectUrl} = require("../middleware.js"); //importing saveRedirectUrl function from middleware.js to use it here in our routes to save the url of the page from which user was redirected to login page
-
-router.get("/signup", (req, res) => {
-    res.render("users/signup.ejs");
-});
-
-router.post("/signup", asyncwrap(async (req, res, next) => {
-    try{
-        let { username, email, password } = req.body;
-        const newUser = new User({ email, username });
-        const registeredUser = await User.register(newUser, password); // this will hash and salt the password and save it in DB
-
-        //we want just after signup, user should be logged in automatically, so we will use passport.authenticate() method to log the user in automatically after signup
-        req.login(registeredUser, (err) => {
-            if (err) {
-                return next(err);
-            }
-            req.flash("success", "Welcome to Wanderlust!"); // flash message to show after successful signup
-            res.redirect("/listings");
-        })
-    }catch(e){
-        req.flash("error", e.message);
-        res.redirect("/signup");
-    }
-}));
-
-router.get("/login", (req,res)=>{
-    res.render("users/login.ejs");
-})
-
-router.post("/login", saveRedirectUrl, passport.authenticate("local", {failureRedirect: "/login", failureFlash: true}), (req,res) =>{
-    //req.user returns email, username, _id, and other info of the user who is logged in
-    console.log(req.user);
-    req.flash("success", "Welcome to Wanderlust");
-    res.redirect(res.locals.redirectUrl || "/listings"); //if user was redirected to login page from some other page then after login he will be redirected back to that page, otherwise he will be redirected to same page from which he was redirected to login page
-})
-
-// logout route - passport provides a logout method to log the user out and destroy the session "req.logout()" and then we will redirect the user to /listings page
-router.get("/logout", (req,res,next)=>{
-    req.logout((err)=>{
-        if(err){
-            return next(err);
-        }
-        req.flash("success", "You have been logged out");
-        res.redirect("/listings");
-    });
-});
-
-module.exports = router;
-</file>
-
-<file path="cloudConfig.js">
-const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
-
-//cloud_name, api_key, and api_secret are must, yahi naam hi dena hai, that is by default CLOUDINARY_URL in .env file
-cloudinary.config({
-    cloud_name: process.env.CLOUD_NAME,
-    api_key: process.env.CLOUD_API_KEY,
-    api_secret: process.env.CLOUD_API_SECRET,
-});
-
-const storage = new CloudinaryStorage({
-    cloudinary,
-    params: {
-        folder: "wanderlust_DEV",
-        allowed_formats: ["png", "jpg", "jpeg"],
-    },
-});
-
-module.exports = { cloudinary, storage };
-</file>
-
-<file path="init/data.js">
-const sampleListings = [
-  {
-    title: "Cozy Beachfront Cottage",
-    description:
-      "Escape to this charming beachfront cottage for a relaxing getaway. Enjoy stunning ocean views and easy access to the beach.",
-    image:{
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"},
-    price: 1500,
-    location: "Malibu",
-    country: "United States",
-  },
-  {
-    title: "Modern Loft in Downtown",
-    description:
-      "Stay in the heart of the city in this stylish loft apartment. Perfect for urban explorers!",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1200,
-    location: "New York City",
-    country: "United States",
-  },
-  {
-    title: "Mountain Retreat",
-    description:
-      "Unplug and unwind in this peaceful mountain cabin. Surrounded by nature, it's a perfect place to recharge.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1000,
-    location: "Aspen",
-    country: "United States",
-  },
-  {
-    title: "Historic Villa in Tuscany",
-    description:
-      "Experience the charm of Tuscany in this beautifully restored villa. Explore the rolling hills and vineyards.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 2500,
-    location: "Florence",
-    country: "Italy",
-  },
-  {
-    title: "Secluded Treehouse Getaway",
-    description:
-      "Live among the treetops in this unique treehouse retreat. A true nature lover's paradise.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 800,
-    location: "Portland",
-    country: "United States",
-  },
-  {
-    title: "Beachfront Paradise",
-    description:
-      "Step out of your door onto the sandy beach. This beachfront condo offers the ultimate relaxation.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 2000,
-    location: "Cancun",
-    country: "Mexico",
-  },
-  {
-    title: "Rustic Cabin by the Lake",
-    description:
-      "Spend your days fishing and kayaking on the serene lake. This cozy cabin is perfect for outdoor enthusiasts.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 900,
-    location: "Lake Tahoe",
-    country: "United States",
-  },
-  {
-    title: "Luxury Penthouse with City Views",
-    description:
-      "Indulge in luxury living with panoramic city views from this stunning penthouse apartment.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 3500,
-    location: "Los Angeles",
-    country: "United States",
-  },
-  {
-    title: "Ski-In/Ski-Out Chalet",
-    description:
-      "Hit the slopes right from your doorstep in this ski-in/ski-out chalet in the Swiss Alps.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1502784444187-359ac186c5bb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 3000,
-    location: "Verbier",
-    country: "Switzerland",
-  },
-  {
-    title: "Safari Lodge in the Serengeti",
-    description:
-      "Experience the thrill of the wild in a comfortable safari lodge. Witness the Great Migration up close.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mjl8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 4000,
-    location: "Serengeti National Park",
-    country: "Tanzania",
-  },
-  {
-    title: "Historic Canal House",
-    description:
-      "Stay in a piece of history in this beautifully preserved canal house in Amsterdam's iconic district.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y2FtcGluZ3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1800,
-    location: "Amsterdam",
-    country: "Netherlands",
-  },
-  {
-    title: "Private Island Retreat",
-    description:
-      "Have an entire island to yourself for a truly exclusive and unforgettable vacation experience.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1618140052121-39fc6db33972?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bG9kZ2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 10000,
-    location: "Fiji",
-    country: "Fiji",
-  },
-  {
-    title: "Charming Cottage in the Cotswolds",
-    description:
-      "Escape to the picturesque Cotswolds in this quaint and charming cottage with a thatched roof.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1602088113235-229c19758e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8YmVhY2glMjB2YWNhdGlvbnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1200,
-    location: "Cotswolds",
-    country: "United Kingdom",
-  },
-  {
-    title: "Historic Brownstone in Boston",
-    description:
-      "Step back in time in this elegant historic brownstone located in the heart of Boston.",
-    image:{
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1533619239233-6280475a633a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 2200,
-    location: "Boston",
-    country: "United States",
-  },
-  {
-    title: "Beachfront Bungalow in Bali",
-    description:
-      "Relax on the sandy shores of Bali in this beautiful beachfront bungalow with a private pool.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1602391833977-358a52198938?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1800,
-    location: "Bali",
-    country: "Indonesia",
-  },
-  {
-    title: "Mountain View Cabin in Banff",
-    description:
-      "Enjoy breathtaking mountain views from this cozy cabin in the Canadian Rockies.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1521401830884-6c03c1c87ebb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1500,
-    location: "Banff",
-    country: "Canada",
-  },
-  {
-    title: "Art Deco Apartment in Miami",
-    description:
-      "Step into the glamour of the 1920s in this stylish Art Deco apartment in South Beach.",
-    image: {
-      filename: "listingimage",
-      url: "https://plus.unsplash.com/premium_photo-1670963964797-942df1804579?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1600,
-    location: "Miami",
-    country: "United States",
-  },
-  {
-    title: "Tropical Villa in Phuket",
-    description:
-      "Escape to a tropical paradise in this luxurious villa with a private infinity pool in Phuket.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1470165301023-58dab8118cc9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 3000,
-    location: "Phuket",
-    country: "Thailand",
-  },
-  {
-    title: "Historic Castle in Scotland",
-    description:
-      "Live like royalty in this historic castle in the Scottish Highlands. Explore the rugged beauty of the area.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1585543805890-6051f7829f98?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGJlYWNoJTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 4000,
-    location: "Scottish Highlands",
-    country: "United Kingdom",
-  },
-  {
-    title: "Desert Oasis in Dubai",
-    description:
-      "Experience luxury in the middle of the desert in this opulent oasis in Dubai with a private pool.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1518684079-3c830dcef090?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZHViYWl8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 5000,
-    location: "Dubai",
-    country: "United Arab Emirates",
-  },
-  {
-    title: "Rustic Log Cabin in Montana",
-    description:
-      "Unplug and unwind in this cozy log cabin surrounded by the natural beauty of Montana.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1586375300773-8384e3e4916f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1100,
-    location: "Montana",
-    country: "United States",
-  },
-  {
-    title: "Beachfront Villa in Greece",
-    description:
-      "Enjoy the crystal-clear waters of the Mediterranean in this beautiful beachfront villa on a Greek island.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8dmlsbGF8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 2500,
-    location: "Mykonos",
-    country: "Greece",
-  },
-  {
-    title: "Eco-Friendly Treehouse Retreat",
-    description:
-      "Stay in an eco-friendly treehouse nestled in the forest. It's the perfect escape for nature lovers.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1488462237308-ecaa28b729d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 750,
-    location: "Costa Rica",
-    country: "Costa Rica",
-  },
-  {
-    title: "Historic Cottage in Charleston",
-    description:
-      "Experience the charm of historic Charleston in this beautifully restored cottage with a private garden.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1587381420270-3e1a5b9e6904?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1600,
-    location: "Charleston",
-    country: "United States",
-  },
-  {
-    title: "Modern Apartment in Tokyo",
-    description:
-      "Explore the vibrant city of Tokyo from this modern and centrally located apartment.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1480796927426-f609979314bd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fHRva3lvfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 2000,
-    location: "Tokyo",
-    country: "Japan",
-  },
-  {
-    title: "Lakefront Cabin in New Hampshire",
-    description:
-      "Spend your days by the lake in this cozy cabin in the scenic White Mountains of New Hampshire.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1578645510447-e20b4311e3ce?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1200,
-    location: "New Hampshire",
-    country: "United States",
-  },
-  {
-    title: "Luxury Villa in the Maldives",
-    description:
-      "Indulge in luxury in this overwater villa in the Maldives with stunning views of the Indian Ocean.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bGFrZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 6000,
-    location: "Maldives",
-    country: "Maldives",
-  },
-  {
-    title: "Ski Chalet in Aspen",
-    description:
-      "Hit the slopes in style with this luxurious ski chalet in the world-famous Aspen ski resort.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fGxha2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 4000,
-    location: "Aspen",
-    country: "United States",
-  },
-  {
-    title: "Secluded Beach House in Costa Rica",
-    description:
-      "Escape to a secluded beach house on the Pacific coast of Costa Rica. Surf, relax, and unwind.",
-    image: {
-      filename: "listingimage",
-      url: "https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmVhY2glMjBob3VzZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
-    },
-    price: 1800,
-    location: "Costa Rica",
-    country: "Costa Rica",
-  },
-];
-
-module.exports = { data: sampleListings };
 </file>
 
 <file path="learnings/1-express-routes/express-router-explanation-readme.md">
@@ -1913,9 +1426,130 @@ module.exports = router;
 // }
 </file>
 
+<file path="routes/beforeMVCreview.js">
+//1. require express and creating router
+//2. replace all app.****() with router.****()
+//3. removed /listings/:id/reviews from all routes because we are already using it in app.use("/listings/:id/reviews",reviewRoutes); in index.js
+//4. export router at the end of file
+
+// New problem : id of listing is not available in review.js file because we are using it in app.use("/listings/:id/reviews",reviewRoutes); so to make it available in review.js file we will use merge params:true in review.js file
+// ie: instead of just "router = express.Router();" we will use "router = express.Router({ mergeParams: true });"
+const express = require('express');
+const router = express.Router({ mergeParams: true }); 
+
+//5.require all the models and schema and utils which are used in this file(by the routes) 
+//6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
+
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
+
+const Listing = require('../models/listing.js');
+const Review = require('../models/review.js');
+const asyncwrap = require("../utils/wrapasync.js");
+const { validatereview } = require("../middleware.js");  //importing validatereview function from middleware.js to use it here in our routes to validate the review form data from server side using joi schema
+const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
+const { isReviewAuthor } = require("../middleware.js");  //importing isReviewAuthor function from middleware.js to use it here in our routes to check if user is the author of this review or not
+
+
+
+
+// our all review routes
+// post route to add review for a particular listing
+router.post("/",isLoggedIn, validatereview, asyncwrap(async(req,res)=>{
+    
+    let {id} = req.params;
+    let idlisting = await Listing.findById(id);
+
+    // creating new review from review schema
+    // jo show.ejs me review form banaya tha see there name="review[comment]" and name="review[rating]" asa likha hai it means ki req.body ke andar ek object aayega jiska naam hoga "review" or uske andar do fields hongi comment and rating
+    let newreview = new Review(req.body.review);
+    newreview.author = req.user._id;  //storing the id of the user who created this review in the "author" field of that particular review
+
+    // pushing object id of new review into "reviews" array of that particular listing
+    idlisting.reviews.push(newreview);
+
+    // saving both review and listing
+    await newreview.save();
+    await idlisting.save();
+
+    res.redirect(`/listings/${id}`);
+}))
+
+// delete route to delete a review 
+router.delete("/:reviewid",isLoggedIn ,isReviewAuthor ,asyncwrap(async(req,res)=>{
+    let {id,reviewid} = req.params;
+    // first we will find the listing from which we want to delete the review
+    // the $pull operator removes from an existing array all instances of a value or values that match a specified condition.
+    await Listing.findByIdAndUpdate(id,{$pull: {reviews: reviewid}});  //reviews array me se wo id delete krdo jo id, reviewid ke barabar ho
+    // now we will delete the review from reviews collection also
+    await Review.findByIdAndDelete(reviewid);
+    res.redirect(`/listings/${id}`);
+}))
+
+
+module.exports = router;
+</file>
+
+<file path="routes/beforeMVCuser.js">
+const express = require("express");
+const router = express.Router();
+const User = require("../models/user.js");
+const asyncwrap = require("../utils/wrapasync.js");
+const passport = require("passport");
+const {saveRedirectUrl} = require("../middleware.js"); //importing saveRedirectUrl function from middleware.js to use it here in our routes to save the url of the page from which user was redirected to login page
+
+router.get("/signup", (req, res) => {
+    res.render("users/signup.ejs");
+});
+
+router.post("/signup", asyncwrap(async (req, res, next) => {
+    try{
+        let { username, email, password } = req.body;
+        const newUser = new User({ email, username });
+        const registeredUser = await User.register(newUser, password); // this will hash and salt the password and save it in DB
+
+        //we want just after signup, user should be logged in automatically, so we will use passport.authenticate() method to log the user in automatically after signup
+        req.login(registeredUser, (err) => {
+            if (err) {
+                return next(err);
+            }
+            req.flash("success", "Welcome to Wanderlust!"); // flash message to show after successful signup
+            res.redirect("/listings");
+        })
+    }catch(e){
+        req.flash("error", e.message);
+        res.redirect("/signup");
+    }
+}));
+
+router.get("/login", (req,res)=>{
+    res.render("users/login.ejs");
+})
+
+router.post("/login", saveRedirectUrl, passport.authenticate("local", {failureRedirect: "/login", failureFlash: true}), (req,res) =>{
+    //req.user returns email, username, _id, and other info of the user who is logged in
+    console.log(req.user);
+    req.flash("success", "Welcome to Wanderlust");
+    res.redirect(res.locals.redirectUrl || "/listings"); //if user was redirected to login page from some other page then after login he will be redirected back to that page, otherwise he will be redirected to same page from which he was redirected to login page
+})
+
+// logout route - passport provides a logout method to log the user out and destroy the session "req.logout()" and then we will redirect the user to /listings page
+router.get("/logout", (req,res,next)=>{
+    req.logout((err)=>{
+        if(err){
+            return next(err);
+        }
+        req.flash("success", "You have been logged out");
+        res.redirect("/listings");
+    });
+});
+
+module.exports = router;
+</file>
+
 <file path="views/includes/flash.ejs">
 <% if(success && success.length) { %>
-    <div class="col-6 offset-3 alert alert-success alert-dismissible fade show" role="alert">
+    <div class="col-12 col-md-6 offset-md-3 mt-3 alert alert-success alert-dismissible fade show" role="alert">
         <%= success %>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
@@ -1923,7 +1557,7 @@ module.exports = router;
 
 
 <% if(error && error.length) { %>
-    <div class="col-6 offset-3 alert alert-danger alert-dismissible fade show" role="alert">
+    <div class="col-12 col-md-6 offset-md-3 mt-3 alert alert-danger alert-dismissible fade show" role="alert">
         <%= error %>
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
@@ -1931,29 +1565,56 @@ module.exports = router;
 </file>
 
 <file path="views/includes/footer.ejs">
-<footer class="f-info ">
-    <div class="f-info-socials">
-        <i class="fa-brands fa-square-facebook"></i>
-        <i class="fa-brands fa-square-instagram"></i>
-        <i class="fa-brands fa-linkedin"></i>
-    </div>
+<footer class="wl-footer">
+    <div class="container">
+        <div class="row g-4">
 
-    <div>&copy; Wanderlust Private Limited</div>
+            <!-- Brand + socials -->
+            <div class="col-12 col-md-5">
+                <a class="wl-footer-brand" href="/listings">
+                    <i class="fa-regular fa-compass"></i>
+                    <span>Wanderlust</span>
+                </a>
+                <p class="wl-footer-tagline">
+                    Discover unique stays, from beachfront cottages to mountain cabins, and book your next getaway.
+                </p>
+                <div class="wl-footer-socials">
+                    <a href="https://www.youtube.com/@kshitizsoni5040" target="_blank" rel="noopener" aria-label="YouTube"><i class="fa-brands fa-youtube"></i></a>
+                    <a href="https://www.instagram.com/_kshitizsoni/" aria-label="Instagram"><i class="fa-brands fa-instagram"></i></a>
+                    <a href="https://www.linkedin.com/in/kshitiz-soni-828b69324/" aria-label="LinkedIn"><i class="fa-brands fa-linkedin-in"></i></a>
+                </div>
+            </div>
 
-    <div class="f-info-links">
-        <a href="/privacy">Privacy</a>
-        <a href="/terms">Terms</a>
+            <!-- Explore -->
+            <div class="col-6 col-md-3">
+                <h6 class="wl-footer-heading">Explore</h6>
+                <ul class="wl-footer-links">
+                    <li><a href="/listings">All Listings</a></li>
+                    <li><a href="/listings/new">Add new Listing</a></li>
+                    <% if (!currentUser) { %>
+                        <li><a href="/login">Login</a></li>
+                        <li><a href="/signup">Sign up</a></li>
+                    <% } %>
+                </ul>
+            </div>
+
+            <!-- Legal -->
+            <div class="col-6 col-md-4">
+                <h6 class="wl-footer-heading">Company</h6>
+                <ul class="wl-footer-links">
+                    <li><a href="/privacy">Privacy</a></li>
+                    <li><a href="/terms">Terms</a></li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div class="wl-footer-bottom">
+            <span>&copy; <%= new Date().getFullYear() %> Wanderlust Private Limited. All rights reserved.</span>
+            <span>Made with <i class="fa-solid fa-heart"></i> by Kshitiz</span>
+        </div>
     </div>
 </footer>
-</file>
-
-<file path="views/listings/home.ejs">
-<% layout("/layouts/boilerplate.ejs") %>
-
-    <body>
-        <h1>Home Page or Landing page here</h1>
-        <a href="/listings" class="show-route-btn show-route-viewall-btn">View all listings</a>
-    </body>
 </file>
 
 <file path="views/users/login.ejs">
@@ -2027,107 +1688,380 @@ module.exports = router;
 node_modules/
 </file>
 
-<file path="middleware.js">
-const Listing = require("./models/listing");
-const Review = require('./models/review.js');
-const {listingSchema} = require("./schema.js");
-const ExpressError = require("./utils/ExpressError.js")
-const {reviewSchema } = require('./schema.js');
+<file path="cloudConfig.js">
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
+//cloud_name, api_key, and api_secret are must, yahi naam hi dena hai, that is by default CLOUDINARY_URL in .env file
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_API_KEY,
+    api_secret: process.env.CLOUD_API_SECRET,
+});
 
-//validating the form data from server side using joi schema
-module.exports.validatelisting = (req,res,next) => {
-    let {error} = listingSchema.validate(req.body);
-    if(error){
-        let errMsg = error.details.map(el => el.message).join(",");
-        throw new ExpressError(400, errMsg);
-    }else{
-        next();
-    }
-}
+const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "wanderlust_DEV",
+        allowed_formats: ["png", "jpg", "jpeg"],
+    },
+});
 
-//validating the review form data from server side using joi schema
-module.exports.validatereview = (req,res,next) => {
-    let {error} = reviewSchema.validate(req.body);
-    if(error){
-        let errMsg = error.details.map(el => el.message).join(",");
-        throw new ExpressError(400, errMsg);
-    }else{
-        next();
-    }
-}
-
-
-
-//if user is not logged in and he tries to create a new listing then we will show a flash messsage and redirect him to login page -> and this check is done by passport.js method "req.isAuthenticated()" which returns true if user is logged in and false if not
-module.exports.isLoggedIn = (req, res, next) => {
-    if(!req.isAuthenticated()) {
-        //req.originalUrl -> returns the url of the page from which user was redirected to login page, so after login we will redirect him back to that page
-        //rdirectUrl is a custom property(key) we are adding to req.session object to store the url of the page from which user was redirected to login page
-        req.session.redirectUrl = req.originalUrl;
-
-        req.flash("error", "you must be logged in first");  //key="error"
-        return res.redirect("/login");
-    }
-    next();
-}
-
-
-module.exports.saveRedirectUrl = (req, res, next) => {
-    if(req.session.redirectUrl) {
-        res.locals.redirectUrl = req.session.redirectUrl
-    }
-    next();
-}
-
-
-module.exports.isOwner = async (req, res, next) => {
-    let { id } = req.params;
-    const idlisting = await Listing.findById(id);
-    if(!idlisting.owner.equals(res.locals.currentUser._id)) {  //checking if the user who is trying to edit this listing is the owner of this listing or not
-        req.flash("error", "you are not the owner of this listing");  //key="error"
-        return res.redirect(`/listings/${id}`);
-    }
-    next();
-}
-
-
-
-
-module.exports.isReviewAuthor = async (req, res, next) => {
-    let {id,reviewid} = req.params;
-    const review = await Review.findById(reviewid);
-    if(!review.author.equals(res.locals.currentUser._id)) {  //checking if the user who is trying to edit this listing is the owner of this listing or not
-        req.flash("error", "you are not the author of this review");  //key="error"
-        return res.redirect(`/listings/${id}`);
-    }
-    next();
-}
+module.exports = { cloudinary, storage };
 </file>
 
-<file path="init/init.js">
-const mongoose = require("mongoose");
-const initdata = require("./data.js");
-const Listing = require("../models/listing.js") 
+<file path="init/data.js">
+const sampleListings = [
+  {
+    title: "Cozy Beachfront Cottage",
+    description:
+      "Escape to this charming beachfront cottage for a relaxing getaway. Enjoy stunning ocean views and easy access to the beach.",
+    image:{
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"},
+    price: 1500,
+    location: "Malibu",
+    country: "United States",
+  },
+  {
+    title: "Modern Loft in Downtown",
+    description:
+      "Stay in the heart of the city in this stylish loft apartment. Perfect for urban explorers!",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1200,
+    location: "New York City",
+    country: "United States",
+  },
+  {
+    title: "Mountain Retreat",
+    description:
+      "Unplug and unwind in this peaceful mountain cabin. Surrounded by nature, it's a perfect place to recharge.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1000,
+    location: "Aspen",
+    country: "United States",
+  },
+  {
+    title: "Historic Villa in Tuscany",
+    description:
+      "Experience the charm of Tuscany in this beautifully restored villa. Explore the rolling hills and vineyards.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2500,
+    location: "Florence",
+    country: "Italy",
+  },
+  {
+    title: "Secluded Treehouse Getaway",
+    description:
+      "Live among the treetops in this unique treehouse retreat. A true nature lover's paradise.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 800,
+    location: "Portland",
+    country: "United States",
+  },
+  {
+    title: "Beachfront Paradise",
+    description:
+      "Step out of your door onto the sandy beach. This beachfront condo offers the ultimate relaxation.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2000,
+    location: "Cancun",
+    country: "Mexico",
+  },
+  {
+    title: "Rustic Cabin by the Lake",
+    description:
+      "Spend your days fishing and kayaking on the serene lake. This cozy cabin is perfect for outdoor enthusiasts.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 900,
+    location: "Lake Tahoe",
+    country: "United States",
+  },
+  {
+    title: "Luxury Penthouse with City Views",
+    description:
+      "Indulge in luxury living with panoramic city views from this stunning penthouse apartment.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 3500,
+    location: "Los Angeles",
+    country: "United States",
+  },
+  {
+    title: "Ski-In/Ski-Out Chalet",
+    description:
+      "Hit the slopes right from your doorstep in this ski-in/ski-out chalet in the Swiss Alps.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1502784444187-359ac186c5bb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 3000,
+    location: "Verbier",
+    country: "Switzerland",
+  },
+  {
+    title: "Safari Lodge in the Serengeti",
+    description:
+      "Experience the thrill of the wild in a comfortable safari lodge. Witness the Great Migration up close.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mjl8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 4000,
+    location: "Serengeti National Park",
+    country: "Tanzania",
+  },
+  {
+    title: "Historic Canal House",
+    description:
+      "Stay in a piece of history in this beautifully preserved canal house in Amsterdam's iconic district.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y2FtcGluZ3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1800,
+    location: "Amsterdam",
+    country: "Netherlands",
+  },
+  {
+    title: "Private Island Retreat",
+    description:
+      "Have an entire island to yourself for a truly exclusive and unforgettable vacation experience.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1618140052121-39fc6db33972?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bG9kZ2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 10000,
+    location: "Fiji",
+    country: "Fiji",
+  },
+  {
+    title: "Charming Cottage in the Cotswolds",
+    description:
+      "Escape to the picturesque Cotswolds in this quaint and charming cottage with a thatched roof.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602088113235-229c19758e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8YmVhY2glMjB2YWNhdGlvbnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1200,
+    location: "Cotswolds",
+    country: "United Kingdom",
+  },
+  {
+    title: "Historic Brownstone in Boston",
+    description:
+      "Step back in time in this elegant historic brownstone located in the heart of Boston.",
+    image:{
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1533619239233-6280475a633a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2200,
+    location: "Boston",
+    country: "United States",
+  },
+  {
+    title: "Beachfront Bungalow in Bali",
+    description:
+      "Relax on the sandy shores of Bali in this beautiful beachfront bungalow with a private pool.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602391833977-358a52198938?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1800,
+    location: "Bali",
+    country: "Indonesia",
+  },
+  {
+    title: "Mountain View Cabin in Banff",
+    description:
+      "Enjoy breathtaking mountain views from this cozy cabin in the Canadian Rockies.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1521401830884-6c03c1c87ebb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1500,
+    location: "Banff",
+    country: "Canada",
+  },
+  {
+    title: "Art Deco Apartment in Miami",
+    description:
+      "Step into the glamour of the 1920s in this stylish Art Deco apartment in South Beach.",
+    image: {
+      filename: "listingimage",
+      url: "https://plus.unsplash.com/premium_photo-1670963964797-942df1804579?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1600,
+    location: "Miami",
+    country: "United States",
+  },
+  {
+    title: "Tropical Villa in Phuket",
+    description:
+      "Escape to a tropical paradise in this luxurious villa with a private infinity pool in Phuket.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1470165301023-58dab8118cc9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 3000,
+    location: "Phuket",
+    country: "Thailand",
+  },
+  {
+    title: "Historic Castle in Scotland",
+    description:
+      "Live like royalty in this historic castle in the Scottish Highlands. Explore the rugged beauty of the area.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1585543805890-6051f7829f98?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGJlYWNoJTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 4000,
+    location: "Scottish Highlands",
+    country: "United Kingdom",
+  },
+  {
+    title: "Desert Oasis in Dubai",
+    description:
+      "Experience luxury in the middle of the desert in this opulent oasis in Dubai with a private pool.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1518684079-3c830dcef090?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZHViYWl8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 5000,
+    location: "Dubai",
+    country: "United Arab Emirates",
+  },
+  {
+    title: "Rustic Log Cabin in Montana",
+    description:
+      "Unplug and unwind in this cozy log cabin surrounded by the natural beauty of Montana.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1586375300773-8384e3e4916f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1100,
+    location: "Montana",
+    country: "United States",
+  },
+  {
+    title: "Beachfront Villa in Greece",
+    description:
+      "Enjoy the crystal-clear waters of the Mediterranean in this beautiful beachfront villa on a Greek island.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8dmlsbGF8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2500,
+    location: "Mykonos",
+    country: "Greece",
+  },
+  {
+    title: "Eco-Friendly Treehouse Retreat",
+    description:
+      "Stay in an eco-friendly treehouse nestled in the forest. It's the perfect escape for nature lovers.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1488462237308-ecaa28b729d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 750,
+    location: "Costa Rica",
+    country: "Costa Rica",
+  },
+  {
+    title: "Historic Cottage in Charleston",
+    description:
+      "Experience the charm of historic Charleston in this beautifully restored cottage with a private garden.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1587381420270-3e1a5b9e6904?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1600,
+    location: "Charleston",
+    country: "United States",
+  },
+  {
+    title: "Modern Apartment in Tokyo",
+    description:
+      "Explore the vibrant city of Tokyo from this modern and centrally located apartment.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1480796927426-f609979314bd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fHRva3lvfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2000,
+    location: "Tokyo",
+    country: "Japan",
+  },
+  {
+    title: "Lakefront Cabin in New Hampshire",
+    description:
+      "Spend your days by the lake in this cozy cabin in the scenic White Mountains of New Hampshire.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1578645510447-e20b4311e3ce?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1200,
+    location: "New Hampshire",
+    country: "United States",
+  },
+  {
+    title: "Luxury Villa in the Maldives",
+    description:
+      "Indulge in luxury in this overwater villa in the Maldives with stunning views of the Indian Ocean.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bGFrZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 6000,
+    location: "Maldives",
+    country: "Maldives",
+  },
+  {
+    title: "Ski Chalet in Aspen",
+    description:
+      "Hit the slopes in style with this luxurious ski chalet in the world-famous Aspen ski resort.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fGxha2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 4000,
+    location: "Aspen",
+    country: "United States",
+  },
+  {
+    title: "Secluded Beach House in Costa Rica",
+    description:
+      "Escape to a secluded beach house on the Pacific coast of Costa Rica. Surf, relax, and unwind.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmVhY2glMjBob3VzZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1800,
+    location: "Costa Rica",
+    country: "Costa Rica",
+  },
+];
 
-main().then(() => {
-    console.log("connection successfull")
-})
-    .catch(err => console.log(err));
-
-async function main() {
-    await mongoose.connect('mongodb://127.0.0.1:27017/wanderlust');
-}
-
-const initDB = async () => {
-    await Listing.deleteMany({});
-    initdata.data = initdata.data.map((obj) => {
-        return { ...obj, owner: "6ac8a411f44319fd6f5ea387" }; // Replace with actual user ID
-    });
-    await Listing.insertMany(initdata.data).then((res) => console.log(res)).catch((err) => { console.log(err) });
-}
-
-initDB();
+module.exports = { data: sampleListings };
 </file>
 
 <file path="learnings/3-express-sessions/express-session-knowledge.md">
@@ -2974,34 +2908,6 @@ So:
 maxAge = 7 days
 </file>
 
-<file path="routes/user.js">
-const express = require("express");
-const router = express.Router();
-const User = require("../models/user.js");
-const asyncwrap = require("../utils/wrapasync.js");
-const passport = require("passport");
-const {saveRedirectUrl} = require("../middleware.js"); //importing saveRedirectUrl function from middleware.js to use it here in our routes to save the url of the page from which user was redirected to login page
-const userController = require("../controllers/usercontroller.js");
-
-router.get("/signup", (req, res) => {
-    res.render("users/signup.ejs");
-});
-router.post("/signup", asyncwrap(userController.signUp)); 
-
-
-router.get("/login", (req,res)=>{
-    res.render("users/login.ejs");
-})
-router.post("/login", saveRedirectUrl, passport.authenticate("local", {failureRedirect: "/login", failureFlash: true}), userController.logIn);
-
-
-// logout route - passport provides a logout method to log the user out and destroy the session "req.logout()" and then we will redirect the user to /listings page
-router.get("/logout", userController.logOut);
-
-
-module.exports = router;
-</file>
-
 <file path="utils/ExpressError.js">
 //this is custom error class to handle express errors more effectively which inherits default error class of javascript
 class ExpressError extends Error{
@@ -3016,23 +2922,60 @@ module.exports = ExpressError;
 </file>
 
 <file path="views/includes/navbar.ejs">
-<nav class="navbar navbar-expand-md bg-body-light border-bottom sticky-top">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="/"><i class="fa-regular fa-compass"></i></a>
-        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
-            <div class="navbar-nav">
-                <a class="nav-link active" href="/">Home</a>
-                <a class="nav-link" href="/listings">All Listings</a>
-                <a class="nav-link" href="/listings/new">Add new Listing</a>
-            </div>
-            <div class="navbar-nav ms-auto">
-                <% if(!currentUser){ %>
-                    <a class="nav-link active" href="/signup">signup</a>
-                    <a class="nav-link" href="/login">Login</a>
-                <% } if(currentUser){ %>
-                    <a class="nav-link" href="/logout">Logout</a>
+<nav class="navbar navbar-expand-lg wl-navbar sticky-top">
+    <div class="container-fluid px-3 px-lg-4">
+
+        <a class="navbar-brand wl-brand" href="/listings">
+            <i class="fa-regular fa-compass"></i>
+            <span>Wanderlust</span>
+        </a>
+
+        <button class="navbar-toggler wl-toggler" type="button" data-bs-toggle="collapse"
+            data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false"
+            aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+
+        <div class="collapse navbar-collapse" id="navbarNav">
+
+            <!-- Search: submits to /listings?q=... from any page -->
+            <form class="wl-search mx-lg-auto my-3 my-lg-0" action="/listings" method="GET" role="search">
+                <i class="fa-solid fa-magnifying-glass wl-search-icon"></i>
+                <input type="search" name="q" maxlength="50" autocomplete="off"
+                    placeholder="Search by title, city or country"
+                    value="<%= locals.q || '' %>" aria-label="Search listings">
+                <button type="submit" class="wl-search-btn">Search</button>
+            </form>
+
+            <ul class="navbar-nav align-items-lg-center">
+                <li class="nav-item">
+                    <a class="nav-link wl-link" href="/listings/new">
+                        <i class="fa-solid fa-plus me-1"></i>Add new Listing
+                    </a>
+                </li>
+
+                <% if (!currentUser) { %>
+                    <li class="nav-item">
+                        <a class="nav-link wl-link" href="/login">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link wl-btn-primary" href="/signup">Sign up</a>
+                    </li>
+                <% } else { %>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link wl-link wl-user dropdown-toggle" href="#" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <span class="wl-avatar"><%= currentUser.username.charAt(0).toUpperCase() %></span>
+                            <span><%= currentUser.username %></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end wl-dropdown">
+                            <li><span class="dropdown-item-text small text-muted">Signed in as <strong><%= currentUser.username %></strong></span></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="/logout"><i class="fa-solid fa-arrow-right-from-bracket me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
                 <% } %>
-            </div>
+            </ul>
         </div>
     </div>
 </nav>
@@ -3076,175 +3019,116 @@ module.exports = ExpressError;
 </html>
 </file>
 
-<file path="views/listings/edit.ejs">
-<% layout("/layouts/boilerplate.ejs") %>
-<!-- same to same form as new.ejs so go read there to understand -->
-    <body>
+<file path="middleware.js">
+const Listing = require("./models/listing");
+const Review = require('./models/review.js');
+const {listingSchema} = require("./schema.js");
+const ExpressError = require("./utils/ExpressError.js")
+const {reviewSchema } = require('./schema.js');
 
-        <div class="new-route-container">
-            <h2>Edit your Listing</h2>
-            <!-- method = put because we are updating an existing listing and sending it to server at /listings/:id -->
-            <form class="new-form needs-validation" novalidate method="post"
-                action="/listings/<%=idlisting._id%>?_method=PUT" enctype="multipart/form-data">
-                <div class="new-route-form-input">
-                    <label for="title">Title:</label>
-                    <input type="text" id="title" name="title" value="<%=idlisting.title%>" required
-                        class="form-control">
-                    <!-- to show text when incorrect data entered -->
-                    <div class="invalid-feedback">Please enter a title name</div>
-                </div>
 
-                <div class="new-route-form-input">
-                    <label for="description">Description:</label>
-                    <textarea id="description" name="description" required
-                        class="form-control"><%=idlisting.description%></textarea>
-                    <!-- to show text when incorrect data entered -->
-                    <div class="invalid-feedback">Please enter a short description</div>
-                </div>
+//validating the form data from server side using joi schema
+module.exports.validatelisting = (req,res,next) => {
+    let {error} = listingSchema.validate(req.body);
+    if(error){
+        let errMsg = error.details.map(el => el.message).join(",");
+        throw new ExpressError(400, errMsg);
+    }else{
+        next();
+    }
+}
 
-                <div class="new-route-form-input">
-                    <label for="image">Image URL:</label>
-                    <input type="text" id="image" name="image" value="<%=idlisting.image.url%>" required
-                        class="form-control">
-                </div>
+//validating the review form data from server side using joi schema
+module.exports.validatereview = (req,res,next) => {
+    let {error} = reviewSchema.validate(req.body);
+    if(error){
+        let errMsg = error.details.map(el => el.message).join(",");
+        throw new ExpressError(400, errMsg);
+    }else{
+        next();
+    }
+}
 
-                <div class="price-and-country">
-                    <div class="new-route-form-input">
-                        <label for="price">Price (₹):</label>
-                        <input type="number" id="price" name="price" value="<%=idlisting.price%>" required
-                            class="form-control">
-                        <!-- to show text when incorrect data entered -->
-                        <div class="invalid-feedback">Please enter a valid price</div>
-                    </div>
 
-                    <div class="new-route-form-input">
-                        <label for="country">Country:</label>
-                        <input type="text" id="country" name="country" value="<%=idlisting.country%>" required
-                            class="form-control">
-                        <!-- to show text when incorrect data entered -->
-                        <div class="invalid-feedback">Enter a valid country name</div>
-                    </div>
-                </div>
 
-                <div class="new-route-form-input">
-                    <label for="location">Location:</label>
-                    <input type="text" id="location" name="location" value="<%=idlisting.location%>" required
-                        class="form-control">
-                    <!-- to show text when incorrect data entered -->
-                    <div class="invalid-feedback">Enter a valid location</div>
-                </div>
+//if user is not logged in and he tries to create a new listing then we will show a flash messsage and redirect him to login page -> and this check is done by passport.js method "req.isAuthenticated()" which returns true if user is logged in and false if not
+module.exports.isLoggedIn = (req, res, next) => {
+    if(!req.isAuthenticated()) {
+        //req.originalUrl -> returns the url of the page from which user was redirected to login page, so after login we will redirect him back to that page
+        //rdirectUrl is a custom property(key) we are adding to req.session object to store the url of the page from which user was redirected to login page
+        if (req.method === "GET") {
+            req.session.redirectUrl = req.originalUrl;
+        } else if (req.params.id) {
+            req.session.redirectUrl = `/listings/${req.params.id}`;
+        }
 
-                <div class="new-route-form-input">
-                    <button type="submit">Repost</button>
-                </div>
-            </form>
-        </div>
-    </body>
+        req.flash("error", "you must be logged in first");  //key="error"
+        return res.redirect("/login");
+    }
+    next();
+}
+
+
+module.exports.saveRedirectUrl = (req, res, next) => {
+    if(req.session.redirectUrl) {
+        res.locals.redirectUrl = req.session.redirectUrl
+    }
+    next();
+}
+
+
+module.exports.isOwner = async (req, res, next) => {
+    let { id } = req.params;
+    const idlisting = await Listing.findById(id);
+    if(!idlisting.owner.equals(res.locals.currentUser._id)) {  //checking if the user who is trying to edit this listing is the owner of this listing or not
+        req.flash("error", "you are not the owner of this listing");  //key="error"
+        return res.redirect(`/listings/${id}`);
+    }
+    next();
+}
+
+
+
+
+module.exports.isReviewAuthor = async (req, res, next) => {
+    let {id,reviewid} = req.params;
+    const review = await Review.findById(reviewid);
+    if(!review.author.equals(res.locals.currentUser._id)) {  //checking if the user who is trying to edit this listing is the owner of this listing or not
+        req.flash("error", "you are not the author of this review");  //key="error"
+        return res.redirect(`/listings/${id}`);
+    }
+    next();
+}
 </file>
 
-<file path="views/listings/index.ejs">
-<% layout("/layouts/boilerplate.ejs") %>
-
-    <body>
-        <div class="index-route-cards">
-            <%for(let listing of allListings){%>
-                <a class="listing-link" href="/listings/<%=listing._id%>">
-                    <div class="card" style="width: 18rem;">
-                        <img src="<%=listing.image.url%>" class="card-img-top">
-                        <div class="card-body">
-                            <h5 class="card-title">
-                                <%=listing.title%>
-                            </h5>
-                            <p class="card-text">
-                                &#8377;<%=listing.price.toLocaleString("en-IN")%> / night</p>
-
-                        </div>
-                    </div>
-                </a>
-
-                <%}%>
-        </div>
-    </body>
-</file>
-
-<file path="views/listings/new.ejs">
-<% layout("/layouts/boilerplate.ejs") %>
-
-    <!-- see sare inputs ke andr "required" likha taki form bharte waqt wo blank na rahe usse bharna mandatary ho-->
-    <!-- but required se jo message show hoga that depends on browser to browser -->
-    <!-- isliye hum khudka "required" keyword set krenge using bootstrap taki hr browser me same message show ho -->
-
-    <!-- goto bootstrap->forms->validation    to read documentation  -->
-    <!-- step-1   add "novalidate" attribute and add class="needs-validation" in your form tag -->
-    <!-- step-2   add "required" attribute and class="form-control" in every input where you want that validation -->
-    <!-- step-3   add class="form-label"  in every label and add JAVASCRIPT CODE FROM DOCUMENTATION in you app.js file-->
-
-    <!-- step-4   optional if you want to show success and faillure text
-     make a div with a text and give it class="valid-feedback" to show text when correct data entered
-     or make a div with a text and give it class="nonvalid-feedback" to show text when incorrect data entered-->
-
-    <!-- also make sure bootstrap cdn are added , js file and boilerplate.ejs files are properly linked-->
-
-    <body>
-        <div class="new-route-container">
-            <h2>Create a New Listing</h2>
-            <!-- method = post because we are creating a new listing and sending it to server at /listings -->
-            <!-- enctype="multipart/form-data" is used to send files(ex:photos) to server -->
-            <form class="new-form needs-validation" method="post" action="/listings" novalidate enctype="multipart/form-data">    
-                <div class="new-route-form-input">
-                    <label class="form-label" for="title">Title:</label>
-                    <input class="form-control" type="text" id="title" name="title" placeholder="Add a Catchy Title"
-                        required>
-                    <!-- to show text when incorrect data entered -->
-                    <div class="invalid-feedback">Please enter a title name</div>
-                </div>
+<file path="init/init.js">
+const mongoose = require("mongoose");
+const initdata = require("./data.js");
+const Listing = require("../models/listing.js")
 
 
-                <div class="new-route-form-input">
-                    <label class="form-label" for="description">Description:</label>
-                    <textarea class="form-control" id="description" name="description" placeholder=""
-                        required></textarea>
-                    <!-- to show text when incorrect data entered -->
-                    <div class="invalid-feedback">Please enter a short description</div>
-                </div>
 
-                <div class="new-route-form-input">
-                    <label class="form-label" for="image">Upload Image:</label>
-                    <input class="form-control" type="file" id="image" name="listing[image]" accept="image/*" placeholder="Enter image URL/Link">
-                </div>
+require("dotenv").config();
+const dburl = process.env.ATLASDB_URL;
 
-                <div class="price-and-country">
-                    <div class="new-route-form-input">
-                        <label class="form-label" for="price">Price (₹):</label>
-                        <input class="form-control" type="number" id="price" name="price" placeholder="1200" required>
+main().then(() => {
+    console.log("connection successfull")
+})
+    .catch(err => console.log(err));
 
-                        <!-- to show text when incorrect data entered -->
-                        <div class="invalid-feedback">Please enter a valid price</div>
-                    </div>
+async function main() {
+    await mongoose.connect(dburl);
+}
 
-                    <div class="new-route-form-input">
-                        <label class="form-label" for="country">Country:</label>
-                        <input class="form-control" type="text" id="country" name="country" placeholder="India"
-                            required>
-                        <!-- to show text when incorrect data entered -->
-                        <div class="invalid-feedback">Enter a valid country name</div>
-                    </div>
-                </div>
+const initDB = async () => {
+    await Listing.deleteMany({});
+    initdata.data = initdata.data.map((obj) => {
+        return { ...obj, owner: "6acb1ddcf90c3624de5bd09c" }; // Replace with actual user ID
+    });
+    await Listing.insertMany(initdata.data).then((res) => console.log(res)).catch((err) => { console.log(err) });
+}
 
-                <div class="new-route-form-input">
-                    <label class="form-label" for="location">Location:</label>
-                    <input class="form-control" type="text" id="location" name="location" placeholder="Enter location"
-                        required>
-                    <!-- to show text when incorrect data entered -->
-                    <div class="invalid-feedback">Enter a valid location</div>
-                </div>
-
-                <div class="new-route-form-input">
-                    <button type="submit">Submit</button>
-                </div>
-            </form>
-        </div>
-    </body>
+initDB();
 </file>
 
 <file path="public/css/style.css">
@@ -3254,11 +3138,12 @@ module.exports = ExpressError;
 
 html,
 body {
-    height: 100%;
     width: 100%;
 }
 
 body {
+    min-height: 100vh;
+    min-height: 100dvh;   /* fixes the mobile browser address-bar jump */
     display: flex;
     flex-direction: column;
 }
@@ -3270,23 +3155,319 @@ body {
 
 
 
-/* Navbar */
-.navbar {
-    height: 4rem;
+/* ===================== Navbar ===================== */
+.wl-navbar {
+    background-color: #fff;
+    border-bottom: 1px solid #eee;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    padding: 0.6rem 0;
+}
+
+/* Brand */
+.wl-brand {
     display: flex;
     align-items: center;
-}
-
-.fa-compass {
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -0.3px;
     color: #fe424d;
-    font-size: 2rem;
 }
 
-.navbar-nav a {
+.wl-brand:hover {
+    color: #d13842;
+}
+
+.wl-brand i {
+    font-size: 1.8rem;
+}
+
+/* Hamburger */
+.wl-toggler {
+    border: 1px solid #eee;
+    border-radius: 10px;
+}
+
+.wl-toggler:focus {
+    box-shadow: 0 0 0 3px rgba(254, 66, 77, 0.2);
+}
+
+/* Search pill */
+.wl-search {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    padding: 0.25rem 0.25rem 0.25rem 1rem;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wl-search:focus-within {
+    border-color: #fe424d;
+    box-shadow: 0 0 0 3px rgba(254, 66, 77, 0.15);
+}
+
+.wl-search-icon {
+    color: #888;
+    margin-right: 0.5rem;
+}
+
+.wl-search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.95rem;
+}
+
+.wl-search-btn {
+    background-color: #fe424d;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.45rem 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.wl-search-btn:hover {
+    background-color: #d13842;
+}
+
+/* Nav links */
+.wl-navbar .navbar-nav {
+    gap: 0.25rem;
+}
+
+.wl-navbar .nav-link.wl-link {
     color: #222;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 0.5rem 0.9rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.wl-navbar .nav-link.wl-link:hover {
+    background-color: #f5f5f5;
+    color: #fe424d;
+}
+
+/* Sign up button */
+.wl-navbar .nav-link.wl-btn-primary {
+    background-color: #fe424d;
+    color: #fff;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 0.5rem 1.2rem;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+.wl-navbar .nav-link.wl-btn-primary:hover {
+    background-color: #d13842;
+    color: #fff;
+}
+
+/* User menu */
+.wl-user {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.wl-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #fe424d;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.wl-dropdown {
+    border: none;
+    border-radius: 14px;
+    padding: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.wl-dropdown .dropdown-item {
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.wl-dropdown .dropdown-item:hover {
+    background-color: #fff1f2;
+    color: #d13842;
+}
+
+/* Mobile: stack everything neatly */
+@media (max-width: 991.98px) {
+    .wl-search {
+        max-width: 100%;
+    }
+
+    .wl-navbar .navbar-nav {
+        padding-bottom: 0.5rem;
+    }
 }
 
 
+
+/* =====================Footer(footer.ejs)======================== */
+/* ===================== Footer ===================== */
+.wl-footer {
+    background-color: #f7f7f7;
+    border-top: 1px solid #eee;
+    margin-top: 4rem;
+    padding: 3rem 0 1.25rem;
+    color: #555;
+}
+
+.wl-footer-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -0.3px;
+    color: #fe424d;
+    text-decoration: none;
+}
+
+.wl-footer-brand:hover {
+    color: #d13842;
+}
+
+.wl-footer-brand i {
+    font-size: 1.8rem;
+}
+
+.wl-footer-tagline {
+    margin: 0.75rem 0 1.25rem;
+    max-width: 340px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Social icons */
+.wl-footer-socials {
+    display: flex;
+    gap: 0.6rem;
+}
+
+.wl-footer-socials a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: #fff;
+    border: 1px solid #e5e5e5;
+    color: #444;
+    text-decoration: none;
+    transition: background-color 0.25s, color 0.25s, transform 0.25s, border-color 0.25s;
+}
+
+.wl-footer-socials a:hover {
+    background-color: #fe424d;
+    border-color: #fe424d;
+    color: #fff;
+    transform: translateY(-3px);
+}
+
+/* Link columns */
+.wl-footer-heading {
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 1rem;
+}
+
+.wl-footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.wl-footer-links li {
+    margin-bottom: 0.55rem;
+}
+
+.wl-footer-links a {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.2s, padding-left 0.2s;
+}
+
+.wl-footer-links a:hover {
+    color: #fe424d;
+    padding-left: 4px;
+}
+
+/* Bottom bar */
+.wl-footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e5e5e5;
+    font-size: 0.85rem;
+    color: #777;
+}
+
+.wl-footer-bottom .fa-heart {
+    color: #fe424d;
+}
+
+@media (max-width: 575.98px) {
+    .wl-footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+
+/* ============ Search results (index.ejs) ============ */
+.search-summary {
+    text-align: center;
+    margin-top: 1.5rem;
+    color: #555;
+}
+
+.search-summary a {
+    color: #fe424d;
+    margin-left: 0.5rem;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: #777;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #ddd;
+    margin-bottom: 1rem;
+}
 
 
 
@@ -3418,8 +3599,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 4rem 1rem;
-    min-height: 100vh;
+    padding: 3rem 1rem;
 }
 
 .show-route-card {
@@ -3757,6 +3937,296 @@ body {
 .auth-form button:hover {
     background-color: #d13842;
 }
+
+
+
+/* ================= Responsive fixes ================= */
+
+/* listing cards: fixed width on desktop, never wider than the screen */
+.index-route-cards .card {
+    width: 18rem;
+    max-width: 100%;
+}
+
+/* spacing between Edit/Delete buttons */
+.show-route-actions {
+    gap: 1rem;
+}
+
+/* long words/URLs must wrap instead of overflowing the card */
+.show-route-info li,
+.review-text,
+.review-author {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 576px) {
+
+    /* full-width cards on small phones */
+    .index-route-cards .card {
+        width: 100%;
+    }
+
+    /* forms: less padding, price and country stacked */
+    .new-form,
+    .auth-form {
+        padding: 1.25rem;
+    }
+
+    .price-and-country {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    /* show page: two 10rem buttons don't fit side by side on a phone */
+    .show-route-card {
+        padding: 1.25rem;
+    }
+
+    .show-route-heading {
+        font-size: 1.5rem;
+    }
+
+    .show-route-actions {
+        flex-direction: column;
+    }
+
+    .show-route-actions form,
+    .show-route-btn {
+        width: 100%;
+    }
+}
+</file>
+
+<file path="routes/user.js">
+const express = require("express");
+const router = express.Router();
+const User = require("../models/user.js");
+const asyncwrap = require("../utils/wrapasync.js");
+const passport = require("passport");
+const {saveRedirectUrl} = require("../middleware.js"); //importing saveRedirectUrl function from middleware.js to use it here in our routes to save the url of the page from which user was redirected to login page
+const userController = require("../controllers/usercontroller.js");
+
+router.get("/signup", (req, res) => {
+    res.render("users/signup.ejs");
+});
+router.post("/signup", asyncwrap(userController.signUp)); 
+
+
+router.get("/login", (req,res)=>{
+    res.render("users/login.ejs");
+})
+router.post("/login", saveRedirectUrl, passport.authenticate("local", {failureRedirect: "/login", failureFlash: true}), userController.logIn);
+
+
+// logout route - passport provides a logout method to log the user out and destroy the session "req.logout()" and then we will redirect the user to /listings page
+router.get("/logout", userController.logOut);
+
+
+module.exports = router;
+</file>
+
+<file path="utils/wrapasync.js">
+// this is a function similar to try catch method that i will use to wrap all async code in index.js to prevent any asyncronous errors from crashing my server
+// it takes a function as input and returns a function which handles any error occured inside the async function and passes it to next() middleware of express
+// so that it can be handled in our error handling middleware in index.js
+
+function asyncwrap(fn){
+    return function(req,res,next){
+        fn(req,res,next).catch((err) => next(err));
+    }
+}
+
+module.exports = asyncwrap;
+</file>
+
+<file path="views/listings/edit.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+<!-- same to same form as new.ejs so go read there to understand -->
+    <body>
+
+        <div class="new-route-container">
+            <h2>Edit your Listing</h2>
+            <!-- method = put because we are updating an existing listing and sending it to server at /listings/:id -->
+            <form class="new-form needs-validation" novalidate method="post"
+                action="/listings/<%=idlisting._id%>?_method=PUT" enctype="multipart/form-data">
+                <div class="new-route-form-input">
+                    <label for="title">Title:</label>
+                    <input type="text" id="title" name="title" value="<%=idlisting.title%>" required
+                        class="form-control">
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a title name</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description" required
+                        class="form-control"><%=idlisting.description%></textarea>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a short description</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label for="image">Change Image (optional):</label>
+                    <input type="file" id="image" name="listing[image]" accept="image/*" class="form-control">
+                </div>
+
+                <div class="price-and-country">
+                    <div class="new-route-form-input">
+                        <label for="price">Price (₹):</label>
+                        <input type="number" id="price" name="price" value="<%=idlisting.price%>" required
+                            class="form-control">
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Please enter a valid price</div>
+                    </div>
+
+                    <div class="new-route-form-input">
+                        <label for="country">Country:</label>
+                        <input type="text" id="country" name="country" value="<%=idlisting.country%>" required
+                            class="form-control">
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Enter a valid country name</div>
+                    </div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label for="location">Location:</label>
+                    <input type="text" id="location" name="location" value="<%=idlisting.location%>" required
+                        class="form-control">
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Enter a valid location</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <button type="submit">Repost</button>
+                </div>
+            </form>
+        </div>
+    </body>
+</file>
+
+<file path="views/listings/index.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+    <!-- functionality for search -->
+    <% if (q) { %>
+        <p class="search-summary">
+            <strong><%= allListings.length %></strong> result<%= allListings.length === 1 ? "" : "s" %>
+            for "<%= q %>"
+            <a href="/listings">Clear search</a>
+        </p>
+    <% } %>
+
+    <% if (allListings.length === 0) { %>
+        <div class="empty-state">
+            <i class="fa-regular fa-face-frown"></i>
+            <h5>No listings found</h5>
+            <p>Try a different city, country or title.</p>
+            <a href="/listings" class="show-route-btn show-route-viewall-btn d-inline-block" style="width:auto">View all listings</a>
+        </div>
+    <% } %>
+
+
+    <!-- actual content -->
+    <body>
+        <div class="index-route-cards">
+            <%for(let listing of allListings){%>
+                <a class="listing-link" href="/listings/<%=listing._id%>">
+                    <div class="card">
+                        <img src="<%=listing.image.url%>" class="card-img-top">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <%=listing.title%>
+                            </h5>
+                            <p class="card-text">
+                                &#8377;<%=listing.price.toLocaleString("en-IN")%> / night</p>
+
+                        </div>
+                    </div>
+                </a>
+
+                <%}%>
+        </div>
+    </body>
+</file>
+
+<file path="views/listings/new.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+    <!-- see sare inputs ke andr "required" likha taki form bharte waqt wo blank na rahe usse bharna mandatary ho-->
+    <!-- but required se jo message show hoga that depends on browser to browser -->
+    <!-- isliye hum khudka "required" keyword set krenge using bootstrap taki hr browser me same message show ho -->
+
+    <!-- goto bootstrap->forms->validation    to read documentation  -->
+    <!-- step-1   add "novalidate" attribute and add class="needs-validation" in your form tag -->
+    <!-- step-2   add "required" attribute and class="form-control" in every input where you want that validation -->
+    <!-- step-3   add class="form-label"  in every label and add JAVASCRIPT CODE FROM DOCUMENTATION in you app.js file-->
+
+    <!-- step-4   optional if you want to show success and faillure text
+     make a div with a text and give it class="valid-feedback" to show text when correct data entered
+     or make a div with a text and give it class="nonvalid-feedback" to show text when incorrect data entered-->
+
+    <!-- also make sure bootstrap cdn are added , js file and boilerplate.ejs files are properly linked-->
+
+    <body>
+        <div class="new-route-container">
+            <h2>Create a New Listing</h2>
+            <!-- method = post because we are creating a new listing and sending it to server at /listings -->
+            <!-- enctype="multipart/form-data" is used to send files(ex:photos) to server -->
+            <form class="new-form needs-validation" method="post" action="/listings" novalidate enctype="multipart/form-data">    
+                <div class="new-route-form-input">
+                    <label class="form-label" for="title">Title:</label>
+                    <input class="form-control" type="text" id="title" name="title" placeholder="Add a Catchy Title"
+                        required>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a title name</div>
+                </div>
+
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="description">Description:</label>
+                    <textarea class="form-control" id="description" name="description" placeholder=""
+                        required></textarea>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a short description</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="image">Upload Image:</label>
+                    <input class="form-control" type="file" id="image" name="listing[image]" accept="image/*" placeholder="Enter image URL/Link">
+                </div>
+
+                <div class="price-and-country">
+                    <div class="new-route-form-input">
+                        <label class="form-label" for="price">Price (₹):</label>
+                        <input class="form-control" type="number" id="price" name="price" placeholder="1200" required>
+
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Please enter a valid price</div>
+                    </div>
+
+                    <div class="new-route-form-input">
+                        <label class="form-label" for="country">Country:</label>
+                        <input class="form-control" type="text" id="country" name="country" placeholder="India"
+                            required>
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Enter a valid country name</div>
+                    </div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="location">Location:</label>
+                    <input class="form-control" type="text" id="location" name="location" placeholder="Enter location"
+                        required>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Enter a valid location</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <button type="submit">Submit</button>
+                </div>
+            </form>
+        </div>
+    </body>
 </file>
 
 <file path="routes/review.js">
@@ -3799,20 +4269,6 @@ router.delete("/:reviewid",isLoggedIn ,isReviewAuthor ,asyncwrap(reviewcontrolle
 module.exports = router;
 </file>
 
-<file path="utils/wrapasync.js">
-// this is a function similar to try catch method that i will use to wrap all async code in index.js to prevent any asyncronous errors from crashing my server
-// it takes a function as input and returns a function which handles any error occured inside the async function and passes it to next() middleware of express
-// so that it can be handled in our error handling middleware in index.js
-
-function asyncwrap(fn){
-    return function(req,res,next){
-        fn(req,res,next).catch((err) => next(err));
-    }
-}
-
-module.exports = asyncwrap;
-</file>
-
 <file path="schema.js">
 // see joi website and see code written there how to use joi
 
@@ -3832,10 +4288,7 @@ module.exports.listingSchema = Joi.object({
     location: Joi.string().required(),
     country: Joi.string().required(),
     price: Joi.number().required().min(0),
-    image: Joi.object({
-        filename: Joi.string().required(),
-        url: Joi.string().required()
-    }).optional()  // Allow image to be optional, as multer will handle file uploads
+    image: Joi.any()
 });
 
 
@@ -3871,7 +4324,7 @@ const reviewschema = new Schema({
     },
     createdate : {
         type : Date,
-        default : Date.now()
+        default : Date.now
     },
     author : {
         type : Schema.Types.ObjectId,
@@ -4005,7 +4458,7 @@ module.exports = router;
                         <%= idlisting.title %>
                     </li>
                     <li><strong>Owner:</strong>
-                        <%= idlisting.owner.username %>
+                        <%= idlisting.owner ? idlisting.owner.username : "Unknown" %>
                     </li>
                     <li><strong>Description:</strong>
                         <%= idlisting.description %>
@@ -4108,7 +4561,7 @@ module.exports = router;
                 <div class="review-card">
 
                     <div class="review-card-body">
-                        <p class="review-author"><%= review.author.username %></p>
+                        <p class="review-author"><%= review.author ? review.author.username : "Anonymous" %></p>
 
                         <!-- Star Rating Display -->
                         <div class="review-stars">
@@ -4268,7 +4721,7 @@ const mongoose = require('mongoose');
 const dburl = process.env.ATLASDB_URL;
 
 async function main() {
-    await mongoose.connect("mongodb://127.0.0.1:27017/wanderlust");   // wanderlust here is name of my DB rest all remains same in URL
+    await mongoose.connect(dburl);   // wanderlust hered is name of my DB rest all remains same in URL
 }
 main().then(() => {
     console.log("connected to database successfully")
@@ -4288,6 +4741,8 @@ app.use(express.static(path.join(__dirname, "public")));
 //Code so that js can read json or url encoded files coming from DB
 app.use(express.urlencoded({ extended: true }));   
 app.use(express.json());
+
+const ExpressError = require("./utils/ExpressError.js");
 
 
 // ------------------------------Session and Flash Messages----------------------------------
@@ -4348,11 +4803,6 @@ app.listen(port, () => {
 
 // -------------------------------------------------------------------------------------------
 // NOW CODES SPECIFICALLY FOR THIS WEBSITE
-// home route
-app.get("/", (req, res) => {
-    res.render("listings/home.ejs");
-})
-
 // --------------------------------------------------------------------------------------------------
 //listing routes are in seprate file named listing.js inside routes folder , so importing it here
 const listingRoutes = require("./routes/listing.js");

@@ -4,11 +4,12 @@
 
 html,
 body {
-    height: 100%;
     width: 100%;
 }
 
 body {
+    min-height: 100vh;
+    min-height: 100dvh;   /* fixes the mobile browser address-bar jump */
     display: flex;
     flex-direction: column;
 }
@@ -20,23 +21,319 @@ body {
 
 
 
-/* Navbar */
-.navbar {
-    height: 4rem;
+/* ===================== Navbar ===================== */
+.wl-navbar {
+    background-color: #fff;
+    border-bottom: 1px solid #eee;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    padding: 0.6rem 0;
+}
+
+/* Brand */
+.wl-brand {
     display: flex;
     align-items: center;
-}
-
-.fa-compass {
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -0.3px;
     color: #fe424d;
-    font-size: 2rem;
 }
 
-.navbar-nav a {
+.wl-brand:hover {
+    color: #d13842;
+}
+
+.wl-brand i {
+    font-size: 1.8rem;
+}
+
+/* Hamburger */
+.wl-toggler {
+    border: 1px solid #eee;
+    border-radius: 10px;
+}
+
+.wl-toggler:focus {
+    box-shadow: 0 0 0 3px rgba(254, 66, 77, 0.2);
+}
+
+/* Search pill */
+.wl-search {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 999px;
+    padding: 0.25rem 0.25rem 0.25rem 1rem;
+    box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.wl-search:focus-within {
+    border-color: #fe424d;
+    box-shadow: 0 0 0 3px rgba(254, 66, 77, 0.15);
+}
+
+.wl-search-icon {
+    color: #888;
+    margin-right: 0.5rem;
+}
+
+.wl-search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0.4rem 0.25rem;
+    font-size: 0.95rem;
+}
+
+.wl-search-btn {
+    background-color: #fe424d;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.45rem 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.wl-search-btn:hover {
+    background-color: #d13842;
+}
+
+/* Nav links */
+.wl-navbar .navbar-nav {
+    gap: 0.25rem;
+}
+
+.wl-navbar .nav-link.wl-link {
     color: #222;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 0.5rem 0.9rem;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.wl-navbar .nav-link.wl-link:hover {
+    background-color: #f5f5f5;
+    color: #fe424d;
+}
+
+/* Sign up button */
+.wl-navbar .nav-link.wl-btn-primary {
+    background-color: #fe424d;
+    color: #fff;
+    font-weight: 500;
+    border-radius: 999px;
+    padding: 0.5rem 1.2rem;
+    text-align: center;
+    transition: background-color 0.3s;
+}
+
+.wl-navbar .nav-link.wl-btn-primary:hover {
+    background-color: #d13842;
+    color: #fff;
+}
+
+/* User menu */
+.wl-user {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.wl-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #fe424d;
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+.wl-dropdown {
+    border: none;
+    border-radius: 14px;
+    padding: 0.5rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.wl-dropdown .dropdown-item {
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.wl-dropdown .dropdown-item:hover {
+    background-color: #fff1f2;
+    color: #d13842;
+}
+
+/* Mobile: stack everything neatly */
+@media (max-width: 991.98px) {
+    .wl-search {
+        max-width: 100%;
+    }
+
+    .wl-navbar .navbar-nav {
+        padding-bottom: 0.5rem;
+    }
 }
 
 
+
+/* =====================Footer(footer.ejs)======================== */
+/* ===================== Footer ===================== */
+.wl-footer {
+    background-color: #f7f7f7;
+    border-top: 1px solid #eee;
+    margin-top: 4rem;
+    padding: 3rem 0 1.25rem;
+    color: #555;
+}
+
+.wl-footer-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -0.3px;
+    color: #fe424d;
+    text-decoration: none;
+}
+
+.wl-footer-brand:hover {
+    color: #d13842;
+}
+
+.wl-footer-brand i {
+    font-size: 1.8rem;
+}
+
+.wl-footer-tagline {
+    margin: 0.75rem 0 1.25rem;
+    max-width: 340px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+/* Social icons */
+.wl-footer-socials {
+    display: flex;
+    gap: 0.6rem;
+}
+
+.wl-footer-socials a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background-color: #fff;
+    border: 1px solid #e5e5e5;
+    color: #444;
+    text-decoration: none;
+    transition: background-color 0.25s, color 0.25s, transform 0.25s, border-color 0.25s;
+}
+
+.wl-footer-socials a:hover {
+    background-color: #fe424d;
+    border-color: #fe424d;
+    color: #fff;
+    transform: translateY(-3px);
+}
+
+/* Link columns */
+.wl-footer-heading {
+    font-weight: 600;
+    color: #222;
+    margin-bottom: 1rem;
+}
+
+.wl-footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.wl-footer-links li {
+    margin-bottom: 0.55rem;
+}
+
+.wl-footer-links a {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.95rem;
+    transition: color 0.2s, padding-left 0.2s;
+}
+
+.wl-footer-links a:hover {
+    color: #fe424d;
+    padding-left: 4px;
+}
+
+/* Bottom bar */
+.wl-footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 2.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #e5e5e5;
+    font-size: 0.85rem;
+    color: #777;
+}
+
+.wl-footer-bottom .fa-heart {
+    color: #fe424d;
+}
+
+@media (max-width: 575.98px) {
+    .wl-footer-bottom {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+
+/* ============ Search results (index.ejs) ============ */
+.search-summary {
+    text-align: center;
+    margin-top: 1.5rem;
+    color: #555;
+}
+
+.search-summary a {
+    color: #fe424d;
+    margin-left: 0.5rem;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: #777;
+}
+
+.empty-state i {
+    font-size: 3rem;
+    color: #ddd;
+    margin-bottom: 1rem;
+}
 
 
 
@@ -168,8 +465,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 4rem 1rem;
-    min-height: 100vh;
+    padding: 3rem 1rem;
 }
 
 .show-route-card {
@@ -506,4 +802,63 @@ body {
 
 .auth-form button:hover {
     background-color: #d13842;
+}
+
+
+
+/* ================= Responsive fixes ================= */
+
+/* listing cards: fixed width on desktop, never wider than the screen */
+.index-route-cards .card {
+    width: 18rem;
+    max-width: 100%;
+}
+
+/* spacing between Edit/Delete buttons */
+.show-route-actions {
+    gap: 1rem;
+}
+
+/* long words/URLs must wrap instead of overflowing the card */
+.show-route-info li,
+.review-text,
+.review-author {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 576px) {
+
+    /* full-width cards on small phones */
+    .index-route-cards .card {
+        width: 100%;
+    }
+
+    /* forms: less padding, price and country stacked */
+    .new-form,
+    .auth-form {
+        padding: 1.25rem;
+    }
+
+    .price-and-country {
+        flex-direction: column;
+        gap: 0;
+    }
+
+    /* show page: two 10rem buttons don't fit side by side on a phone */
+    .show-route-card {
+        padding: 1.25rem;
+    }
+
+    .show-route-heading {
+        font-size: 1.5rem;
+    }
+
+    .show-route-actions {
+        flex-direction: column;
+    }
+
+    .show-route-actions form,
+    .show-route-btn {
+        width: 100%;
+    }
 }

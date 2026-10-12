@@ -1,9 +1,21 @@
 const Listing = require('../models/listing');
 
 // index route
+//added search functionality by claude AI
 module.exports.index = async (req, res) => {
-    const allListings = await Listing.find({});
-    res.render("listings/index.ejs", { allListings })
+    // coerce to a trimmed, length-limited string
+    const q = String(req.query.q || "").trim().slice(0, 50);
+
+    let filter = {};
+    if (q) {
+        // escape regex special characters so input like "(" or "*" can't break the query
+        const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const regex = new RegExp(safe, "i"); // "i" = case-insensitive
+        filter = { $or: [{ title: regex }, { location: regex }, { country: regex }] };
+    }
+
+    const allListings = await Listing.find(filter);
+    res.render("listings/index.ejs", { allListings, q });
 }
 
 // new route

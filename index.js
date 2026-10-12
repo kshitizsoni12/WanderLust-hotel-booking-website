@@ -47,7 +47,7 @@ const mongoose = require('mongoose');
 const dburl = process.env.ATLASDB_URL;
 
 async function main() {
-    await mongoose.connect("mongodb://127.0.0.1:27017/wanderlust");   // wanderlust here is name of my DB rest all remains same in URL
+    await mongoose.connect(dburl);   // wanderlust hered is name of my DB rest all remains same in URL
 }
 main().then(() => {
     console.log("connected to database successfully")
@@ -74,18 +74,31 @@ const ExpressError = require("./utils/ExpressError.js");
 // ------------------------------Session and Flash Messages----------------------------------
 // requiring express-session
 const session = require("express-session");
+const MongoStore = require("connect-mongo"); // requiring connect-mongo to store session in database instead of local storage of browser, so that even if user closes the browser and opens it again, he will still be logged in
+
+const store = MongoStore.create({
+    mongoUrl: dburl,                 // same ATLASDB_URL you already use
+    touchAfter: 24 * 3600,           // seconds: don't resave unchanged session more than once per 24h
+});
+
+store.on("error", (err) => {
+    console.log("ERROR in MONGO SESSION STORE", err);
+});
+
+
 // setting up session options and using it in app
 const sessionOptions = {
-    secret: "thisshouldbeabettersecret!",
+    store,                            // <-- sessions now saved in MongoDB Atlas
+    secret: process.env.SECRET,       // replace the hardcoded "thisshouldbeabettersecret!"
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,         // recommended: don't create empty sessions
     cookie: {
-        expires : Date.now() + 1000 * 60 * 60 * 24 * 7, // cookie will expire in 7 days
-        maxAge : 1000 * 60 * 60 * 24 * 7, // cookie will expire in 7 days
-        httpOnly : true, // cookie cannot be accessed by client side js
-    }
+        maxAge: 1000 * 60 * 60 * 24 * 7,   // 7 days
+        httpOnly: true,
+    },
 };
 app.use(session(sessionOptions));
+
 
 
 // requiring connect-flash to show flash messages (Implementing -> whenever a new listing is added, a flash message will be shown)
@@ -129,11 +142,6 @@ app.listen(port, () => {
 
 // -------------------------------------------------------------------------------------------
 // NOW CODES SPECIFICALLY FOR THIS WEBSITE
-// home route
-app.get("/", (req, res) => {
-    res.render("listings/home.ejs");
-})
-
 // --------------------------------------------------------------------------------------------------
 //listing routes are in seprate file named listing.js inside routes folder , so importing it here
 const listingRoutes = require("./routes/listing.js");
@@ -166,3 +174,4 @@ app.use((err,req,res,next) =>{
     // instead of sending status and message we will render "error.ejs"
     res.render("error.ejs",{message});
 })
+

@@ -18,8 +18,12 @@ const { validatelisting } = require("../middleware.js");  //importing validateli
 const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
 const { isOwner } = require("../middleware.js");  //importing isOwner function from middleware.js to use it here in our routes to check if currently logged in user is the owner of the listing or not
 
-const listingcontroller = require("../controllers/listing.js");  //importing listingcontroller from controllers/listing.js to use it here in our routes to handle the logic of the routes
+const listingcontroller = require("../controllers/listingcontroller.js");  //importing listingcontroller from controllers/listing.js to use it here in our routes to handle the logic of the routes
 
+//7. multer is used to handle file uploads in express.js. It is a middleware that processes multipart/form-data, which is used for uploading files(ex: photos). It makes the uploaded files available in the req.file or req.files object, depending on whether a single file or multiple files are uploaded. In this code, multer is configured to store uploaded files in the "uploads/" directory.
+const multer = require("multer");
+const { storage } = require("../cloudConfig.js");
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5 MB max
 
 
 
@@ -31,7 +35,7 @@ router.get("/", asyncwrap(listingcontroller.index));
 router.get("/new", isLoggedIn, listingcontroller.renderNewForm);
 
 //create route
-router.post("/",isLoggedIn ,validatelisting, asyncwrap(listingcontroller.createListing));  
+router.post("/",isLoggedIn, upload.single('listing[image]'), validatelisting, asyncwrap(listingcontroller.createListing));  
 
 // show route
 router.get("/:id", asyncwrap(listingcontroller.showListing));
@@ -40,7 +44,7 @@ router.get("/:id", asyncwrap(listingcontroller.showListing));
 router.get("/:id/edit",isLoggedIn, isOwner, asyncwrap(listingcontroller.renderEditForm));
 
 //update route
-router.put("/:id",isLoggedIn, isOwner, validatelisting , asyncwrap(listingcontroller.updateListing));
+router.put("/:id",isLoggedIn, isOwner, upload.single('listing[image]'), validatelisting , asyncwrap(listingcontroller.updateListing));
 
 // delete route
 router.delete("/:id", isLoggedIn, isOwner, asyncwrap(listingcontroller.deleteListing));

@@ -1,4 +1,5 @@
 // here we are creating a schema for our listings collection in our database
+const DEFAULT_IMAGE = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxkCoVgzcQBR2gm-5O7rZHG91jPS1YMgHcIj1gORYvKg&s=10";
 const mongoose = require('mongoose');
 const review = require('./review');
 
@@ -6,10 +7,15 @@ const listingschema = new mongoose.Schema({
     title: { type: String, required: true },
     description: { type: String, required: true },
     image: {
-        type: String,
-        //here we are setting a default image if user do not provide any image url
-        default: "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxkCoVgzcQBR2gm-5O7rZHG91jPS1YMgHcIj1gORYvKg&s=10",
-        set: (v) => v === "" ? "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxkCoVgzcQBR2gm-5O7rZHG91jPS1YMgHcIj1gORYvKg&s=10" : v,
+        url: {
+            type: String,
+            default: DEFAULT_IMAGE,
+            set: (v) => v === "" ? DEFAULT_IMAGE : v,
+        },
+        filename: {
+            type: String,
+            default: "default",
+        },
     },
     price: { type: Number, required: true },
     location: { type: String, required: true },

@@ -13,6 +13,8 @@
 // 12.passport
 // 13.passport-local
 // 14.passport-local-mongoose
+// 15.multer
+// 16.npm i cloudinary multer-storage-cloudinary
 
 
 
@@ -65,6 +67,8 @@ app.use(express.static(path.join(__dirname, "public")));
 //Code so that js can read json or url encoded files coming from DB
 app.use(express.urlencoded({ extended: true }));   
 app.use(express.json());
+
+const ExpressError = require("./utils/ExpressError.js");
 
 
 // ------------------------------Session and Flash Messages----------------------------------

@@ -6,7 +6,7 @@
             <h2>Edit your Listing</h2>
             <!-- method = put because we are updating an existing listing and sending it to server at /listings/:id -->
             <form class="new-form needs-validation" novalidate method="post"
-                action="/listings/<%=idlisting._id%>?_method=PUT">
+                action="/listings/<%=idlisting._id%>?_method=PUT" enctype="multipart/form-data">
                 <div class="new-route-form-input">
                     <label for="title">Title:</label>
                     <input type="text" id="title" name="title" value="<%=idlisting.title%>" required
@@ -24,9 +24,8 @@
                 </div>
 
                 <div class="new-route-form-input">
-                    <label for="image">Image URL:</label>
-                    <input type="text" id="image" name="image" value="<%=idlisting.image%>" required
-                        class="form-control">
+                    <label for="image">Change Image (optional):</label>
+                    <input type="file" id="image" name="listing[image]" accept="image/*" class="form-control">
                 </div>
 
                 <div class="price-and-country">

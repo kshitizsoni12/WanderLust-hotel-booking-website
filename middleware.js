@@ -34,7 +34,11 @@ module.exports.isLoggedIn = (req, res, next) => {
     if(!req.isAuthenticated()) {
         //req.originalUrl -> returns the url of the page from which user was redirected to login page, so after login we will redirect him back to that page
         //rdirectUrl is a custom property(key) we are adding to req.session object to store the url of the page from which user was redirected to login page
-        req.session.redirectUrl = req.originalUrl;
+        if (req.method === "GET") {
+            req.session.redirectUrl = req.originalUrl;
+        } else if (req.params.id) {
+            req.session.redirectUrl = `/listings/${req.params.id}`;
+        }
 
         req.flash("error", "you must be logged in first");  //key="error"
         return res.redirect("/login");

@@ -1,0 +1,4390 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+controllers/
+  listingcontroller.js
+  reviewcontroller.js
+  usercontroller.js
+init/
+  data.js
+  init.js
+learnings/
+  1-express-routes/
+    express-router-explanation-readme.md
+  2-cookie/
+    cookie-readme.md
+    demoindex.js
+  3-express-sessions/
+    views/
+      flash.ejs
+    express-session-knowledge.md
+    server.js
+  4-authentication/
+    authentication-passport-readme.md
+models/
+  listing.js
+  review.js
+  user.js
+public/
+  css/
+    style.css
+  js/
+    app.js
+routes/
+  beforeMVClisting.js
+  beforeMVCreview.js
+  beforeMVCuser.js
+  listing.js
+  review.js
+  user.js
+uploads/
+  22f31ec3f8adfaa97be0e6d2b10a7598
+utils/
+  ExpressError.js
+  wrapasync.js
+views/
+  includes/
+    flash.ejs
+    footer.ejs
+    navbar.ejs
+  layouts/
+    boilerplate.ejs
+  listings/
+    edit.ejs
+    home.ejs
+    index.ejs
+    new.ejs
+    show.ejs
+  users/
+    login.ejs
+    signup.ejs
+  error.ejs
+.gitignore
+cloudConfig.js
+index.js
+middleware.js
+package.json
+schema.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="controllers/listingcontroller.js">
+const Listing = require('../models/listing');
+
+// index route
+module.exports.index = async (req, res) => {
+    const allListings = await Listing.find({});
+    res.render("listings/index.ejs", { allListings })
+}
+
+// new route
+module.exports.renderNewForm = (req, res) => {
+    res.render("listings/new.ejs");
+}
+
+// create route
+module.exports.createListing = async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+    
+    const newListing = new Listing(req.body.listing);
+    newListing.owner = req.user._id;
+
+    if (req.file) {
+        newListing.image = { url: req.file.path, filename: req.file.filename };
+    }
+    await newListing.save();
+
+    //adding flash message -> "new listing added successfully"
+    req.flash("success", "new listing added successfully");  //key="success"
+    res.redirect("/listings")
+}
+
+// show route
+module.exports.showListing = async (req, res) => {
+    let { id } = req.params;
+    //populate("reviews") is a mongoose method which is used here to get all the reviews of that particular listing whose id is given in url , basically it fetches all the details (rating and comment) of reviews whose object ids are stored in "reviews" array of that particular listing 
+    // without populate method we will only get array of object ids of reviews not their details such as (comment and rating)
+    const idlisting = await Listing.findById(id).populate({path: "reviews", populate: {path: "author"}}).populate("owner");  //populate("owner") is a mongoose method which is used here to get the details of the owner of that particular listing whose id is given in url , basically it fetches all the details (username and email) of owner whose object id is stored in "owner" field of that particular listing
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
+    res.render("listings/show.ejs", { idlisting })
+}
+
+// edit route
+module.exports.renderEditForm = async (req, res) => {
+    let { id } = req.params;
+    const idlisting = await Listing.findById(id);
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
+    res.render("listings/edit.ejs", { idlisting })
+}
+
+// update route
+module.exports.updateListing = async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+
+    
+    const { id } = req.params;
+    const listing = await Listing.findByIdAndUpdate(id, { ...req.body.listing });
+
+    // only replace the image if a new file was uploaded
+    if (req.file) {
+        listing.image = { url: req.file.path, filename: req.file.filename };
+        await listing.save();
+    }
+
+    req.flash("success", "Listing updated!");
+    res.redirect(`/listings/${id}`);
+}
+
+// delete route
+module.exports.deleteListing = async (req, res) => {
+    let { id } = req.params;
+    await Listing.findByIdAndDelete(id);
+    res.redirect("/listings");
+}
+</file>
+
+<file path="controllers/reviewcontroller.js">
+const Review = require('../models/review.js');
+const Listing = require('../models/listing.js');
+
+module.exports.createReview = async(req,res)=>{
+    
+    let {id} = req.params;
+    let idlisting = await Listing.findById(id);
+
+    // creating new review from review schema
+    // jo show.ejs me review form banaya tha see there name="review[comment]" and name="review[rating]" asa likha hai it means ki req.body ke andar ek object aayega jiska naam hoga "review" or uske andar do fields hongi comment and rating
+    let newreview = new Review(req.body.review);
+    newreview.author = req.user._id;  //storing the id of the user who created this review in the "author" field of that particular review
+
+    // pushing object id of new review into "reviews" array of that particular listing
+    idlisting.reviews.push(newreview);
+
+    // saving both review and listing
+    await newreview.save();
+    await idlisting.save();
+
+    res.redirect(`/listings/${id}`);
+}
+
+
+module.exports.deleteReview = async(req,res)=>{
+    let {id,reviewid} = req.params;
+    // first we will find the listing from which we want to delete the review
+    // the $pull operator removes from an existing array all instances of a value or values that match a specified condition.
+    await Listing.findByIdAndUpdate(id,{$pull: {reviews: reviewid}});  //reviews array me se wo id delete krdo jo id, reviewid ke barabar ho
+    // now we will delete the review from reviews collection also
+    await Review.findByIdAndDelete(reviewid);
+    res.redirect(`/listings/${id}`);
+}
+</file>
+
+<file path="controllers/usercontroller.js">
+const User = require("../models/user.js");
+
+module.exports.signUp = async (req, res, next) => {
+    try{
+        let { username, email, password } = req.body;
+        const newUser = new User({ email, username });
+        const registeredUser = await User.register(newUser, password); // this will hash and salt the password and save it in DB
+
+        //we want just after signup, user should be logged in automatically, so we will use passport.authenticate() method to log the user in automatically after signup
+        req.login(registeredUser, (err) => {
+            if (err) {
+                return next(err);
+            }
+            req.flash("success", "Welcome to Wanderlust!"); // flash message to show after successful signup
+            res.redirect("/listings");
+        })
+    }catch(e){
+        req.flash("error", e.message);
+        res.redirect("/signup");
+    }
+}
+
+module.exports.logIn = (req,res) =>{
+    //req.user returns email, username, _id, and other info of the user who is logged in
+    console.log(req.user);
+    req.flash("success", "Welcome to Wanderlust");
+    res.redirect(res.locals.redirectUrl || "/listings"); //if user was redirected to login page from some other page then after login he will be redirected back to that page, otherwise he will be redirected to same page from which he was redirected to login page
+}
+
+module.exports.logOut = (req,res,next)=>{
+    req.logout((err)=>{
+        if(err){
+            return next(err);
+        }
+        req.flash("success", "You have been logged out");
+        res.redirect("/listings");
+    });
+}
+</file>
+
+<file path="routes/beforeMVCreview.js">
+//1. require express and creating router
+//2. replace all app.****() with router.****()
+//3. removed /listings/:id/reviews from all routes because we are already using it in app.use("/listings/:id/reviews",reviewRoutes); in index.js
+//4. export router at the end of file
+
+// New problem : id of listing is not available in review.js file because we are using it in app.use("/listings/:id/reviews",reviewRoutes); so to make it available in review.js file we will use merge params:true in review.js file
+// ie: instead of just "router = express.Router();" we will use "router = express.Router({ mergeParams: true });"
+const express = require('express');
+const router = express.Router({ mergeParams: true }); 
+
+//5.require all the models and schema and utils which are used in this file(by the routes) 
+//6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
+
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
+
+const Listing = require('../models/listing.js');
+const Review = require('../models/review.js');
+const asyncwrap = require("../utils/wrapasync.js");
+const { validatereview } = require("../middleware.js");  //importing validatereview function from middleware.js to use it here in our routes to validate the review form data from server side using joi schema
+const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
+const { isReviewAuthor } = require("../middleware.js");  //importing isReviewAuthor function from middleware.js to use it here in our routes to check if user is the author of this review or not
+
+
+
+
+// our all review routes
+// post route to add review for a particular listing
+router.post("/",isLoggedIn, validatereview, asyncwrap(async(req,res)=>{
+    
+    let {id} = req.params;
+    let idlisting = await Listing.findById(id);
+
+    // creating new review from review schema
+    // jo show.ejs me review form banaya tha see there name="review[comment]" and name="review[rating]" asa likha hai it means ki req.body ke andar ek object aayega jiska naam hoga "review" or uske andar do fields hongi comment and rating
+    let newreview = new Review(req.body.review);
+    newreview.author = req.user._id;  //storing the id of the user who created this review in the "author" field of that particular review
+
+    // pushing object id of new review into "reviews" array of that particular listing
+    idlisting.reviews.push(newreview);
+
+    // saving both review and listing
+    await newreview.save();
+    await idlisting.save();
+
+    res.redirect(`/listings/${id}`);
+}))
+
+// delete route to delete a review 
+router.delete("/:reviewid",isLoggedIn ,isReviewAuthor ,asyncwrap(async(req,res)=>{
+    let {id,reviewid} = req.params;
+    // first we will find the listing from which we want to delete the review
+    // the $pull operator removes from an existing array all instances of a value or values that match a specified condition.
+    await Listing.findByIdAndUpdate(id,{$pull: {reviews: reviewid}});  //reviews array me se wo id delete krdo jo id, reviewid ke barabar ho
+    // now we will delete the review from reviews collection also
+    await Review.findByIdAndDelete(reviewid);
+    res.redirect(`/listings/${id}`);
+}))
+
+
+module.exports = router;
+</file>
+
+<file path="routes/beforeMVCuser.js">
+const express = require("express");
+const router = express.Router();
+const User = require("../models/user.js");
+const asyncwrap = require("../utils/wrapasync.js");
+const passport = require("passport");
+const {saveRedirectUrl} = require("../middleware.js"); //importing saveRedirectUrl function from middleware.js to use it here in our routes to save the url of the page from which user was redirected to login page
+
+router.get("/signup", (req, res) => {
+    res.render("users/signup.ejs");
+});
+
+router.post("/signup", asyncwrap(async (req, res, next) => {
+    try{
+        let { username, email, password } = req.body;
+        const newUser = new User({ email, username });
+        const registeredUser = await User.register(newUser, password); // this will hash and salt the password and save it in DB
+
+        //we want just after signup, user should be logged in automatically, so we will use passport.authenticate() method to log the user in automatically after signup
+        req.login(registeredUser, (err) => {
+            if (err) {
+                return next(err);
+            }
+            req.flash("success", "Welcome to Wanderlust!"); // flash message to show after successful signup
+            res.redirect("/listings");
+        })
+    }catch(e){
+        req.flash("error", e.message);
+        res.redirect("/signup");
+    }
+}));
+
+router.get("/login", (req,res)=>{
+    res.render("users/login.ejs");
+})
+
+router.post("/login", saveRedirectUrl, passport.authenticate("local", {failureRedirect: "/login", failureFlash: true}), (req,res) =>{
+    //req.user returns email, username, _id, and other info of the user who is logged in
+    console.log(req.user);
+    req.flash("success", "Welcome to Wanderlust");
+    res.redirect(res.locals.redirectUrl || "/listings"); //if user was redirected to login page from some other page then after login he will be redirected back to that page, otherwise he will be redirected to same page from which he was redirected to login page
+})
+
+// logout route - passport provides a logout method to log the user out and destroy the session "req.logout()" and then we will redirect the user to /listings page
+router.get("/logout", (req,res,next)=>{
+    req.logout((err)=>{
+        if(err){
+            return next(err);
+        }
+        req.flash("success", "You have been logged out");
+        res.redirect("/listings");
+    });
+});
+
+module.exports = router;
+</file>
+
+<file path="cloudConfig.js">
+const cloudinary = require("cloudinary").v2;
+const { CloudinaryStorage } = require("multer-storage-cloudinary");
+
+//cloud_name, api_key, and api_secret are must, yahi naam hi dena hai, that is by default CLOUDINARY_URL in .env file
+cloudinary.config({
+    cloud_name: process.env.CLOUD_NAME,
+    api_key: process.env.CLOUD_API_KEY,
+    api_secret: process.env.CLOUD_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+    cloudinary,
+    params: {
+        folder: "wanderlust_DEV",
+        allowed_formats: ["png", "jpg", "jpeg"],
+    },
+});
+
+module.exports = { cloudinary, storage };
+</file>
+
+<file path="init/data.js">
+const sampleListings = [
+  {
+    title: "Cozy Beachfront Cottage",
+    description:
+      "Escape to this charming beachfront cottage for a relaxing getaway. Enjoy stunning ocean views and easy access to the beach.",
+    image:{
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1552733407-5d5c46c3bb3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"},
+    price: 1500,
+    location: "Malibu",
+    country: "United States",
+  },
+  {
+    title: "Modern Loft in Downtown",
+    description:
+      "Stay in the heart of the city in this stylish loft apartment. Perfect for urban explorers!",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1501785888041-af3ef285b470?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fHRyYXZlbHxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1200,
+    location: "New York City",
+    country: "United States",
+  },
+  {
+    title: "Mountain Retreat",
+    description:
+      "Unplug and unwind in this peaceful mountain cabin. Surrounded by nature, it's a perfect place to recharge.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1000,
+    location: "Aspen",
+    country: "United States",
+  },
+  {
+    title: "Historic Villa in Tuscany",
+    description:
+      "Experience the charm of Tuscany in this beautifully restored villa. Explore the rolling hills and vineyards.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8aG90ZWxzfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2500,
+    location: "Florence",
+    country: "Italy",
+  },
+  {
+    title: "Secluded Treehouse Getaway",
+    description:
+      "Live among the treetops in this unique treehouse retreat. A true nature lover's paradise.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 800,
+    location: "Portland",
+    country: "United States",
+  },
+  {
+    title: "Beachfront Paradise",
+    description:
+      "Step out of your door onto the sandy beach. This beachfront condo offers the ultimate relaxation.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1571003123894-1f0594d2b5d9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MjB8fGhvdGVsc3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2000,
+    location: "Cancun",
+    country: "Mexico",
+  },
+  {
+    title: "Rustic Cabin by the Lake",
+    description:
+      "Spend your days fishing and kayaking on the serene lake. This cozy cabin is perfect for outdoor enthusiasts.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 900,
+    location: "Lake Tahoe",
+    country: "United States",
+  },
+  {
+    title: "Luxury Penthouse with City Views",
+    description:
+      "Indulge in luxury living with panoramic city views from this stunning penthouse apartment.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 3500,
+    location: "Los Angeles",
+    country: "United States",
+  },
+  {
+    title: "Ski-In/Ski-Out Chalet",
+    description:
+      "Hit the slopes right from your doorstep in this ski-in/ski-out chalet in the Swiss Alps.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1502784444187-359ac186c5bb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 3000,
+    location: "Verbier",
+    country: "Switzerland",
+  },
+  {
+    title: "Safari Lodge in the Serengeti",
+    description:
+      "Experience the thrill of the wild in a comfortable safari lodge. Witness the Great Migration up close.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1493246507139-91e8fad9978e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mjl8fG1vdW50YWlufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 4000,
+    location: "Serengeti National Park",
+    country: "Tanzania",
+  },
+  {
+    title: "Historic Canal House",
+    description:
+      "Stay in a piece of history in this beautifully preserved canal house in Amsterdam's iconic district.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8Y2FtcGluZ3xlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1800,
+    location: "Amsterdam",
+    country: "Netherlands",
+  },
+  {
+    title: "Private Island Retreat",
+    description:
+      "Have an entire island to yourself for a truly exclusive and unforgettable vacation experience.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1618140052121-39fc6db33972?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bG9kZ2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 10000,
+    location: "Fiji",
+    country: "Fiji",
+  },
+  {
+    title: "Charming Cottage in the Cotswolds",
+    description:
+      "Escape to the picturesque Cotswolds in this quaint and charming cottage with a thatched roof.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602088113235-229c19758e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8N3x8YmVhY2glMjB2YWNhdGlvbnxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1200,
+    location: "Cotswolds",
+    country: "United Kingdom",
+  },
+  {
+    title: "Historic Brownstone in Boston",
+    description:
+      "Step back in time in this elegant historic brownstone located in the heart of Boston.",
+    image:{
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1533619239233-6280475a633a?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTR8fHNreSUyMHZhY2F0aW9ufGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2200,
+    location: "Boston",
+    country: "United States",
+  },
+  {
+    title: "Beachfront Bungalow in Bali",
+    description:
+      "Relax on the sandy shores of Bali in this beautiful beachfront bungalow with a private pool.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602391833977-358a52198938?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MzJ8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1800,
+    location: "Bali",
+    country: "Indonesia",
+  },
+  {
+    title: "Mountain View Cabin in Banff",
+    description:
+      "Enjoy breathtaking mountain views from this cozy cabin in the Canadian Rockies.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1521401830884-6c03c1c87ebb?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTJ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1500,
+    location: "Banff",
+    country: "Canada",
+  },
+  {
+    title: "Art Deco Apartment in Miami",
+    description:
+      "Step into the glamour of the 1920s in this stylish Art Deco apartment in South Beach.",
+    image: {
+      filename: "listingimage",
+      url: "https://plus.unsplash.com/premium_photo-1670963964797-942df1804579?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTZ8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1600,
+    location: "Miami",
+    country: "United States",
+  },
+  {
+    title: "Tropical Villa in Phuket",
+    description:
+      "Escape to a tropical paradise in this luxurious villa with a private infinity pool in Phuket.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1470165301023-58dab8118cc9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 3000,
+    location: "Phuket",
+    country: "Thailand",
+  },
+  {
+    title: "Historic Castle in Scotland",
+    description:
+      "Live like royalty in this historic castle in the Scottish Highlands. Explore the rugged beauty of the area.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1585543805890-6051f7829f98?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTl8fGJlYWNoJTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 4000,
+    location: "Scottish Highlands",
+    country: "United Kingdom",
+  },
+  {
+    title: "Desert Oasis in Dubai",
+    description:
+      "Experience luxury in the middle of the desert in this opulent oasis in Dubai with a private pool.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1518684079-3c830dcef090?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8ZHViYWl8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 5000,
+    location: "Dubai",
+    country: "United Arab Emirates",
+  },
+  {
+    title: "Rustic Log Cabin in Montana",
+    description:
+      "Unplug and unwind in this cozy log cabin surrounded by the natural beauty of Montana.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1586375300773-8384e3e4916f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTN8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1100,
+    location: "Montana",
+    country: "United States",
+  },
+  {
+    title: "Beachfront Villa in Greece",
+    description:
+      "Enjoy the crystal-clear waters of the Mediterranean in this beautiful beachfront villa on a Greek island.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1602343168117-bb8ffe3e2e9f?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NXx8dmlsbGF8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2500,
+    location: "Mykonos",
+    country: "Greece",
+  },
+  {
+    title: "Eco-Friendly Treehouse Retreat",
+    description:
+      "Stay in an eco-friendly treehouse nestled in the forest. It's the perfect escape for nature lovers.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1488462237308-ecaa28b729d7?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8OXx8c2t5JTIwdmFjYXRpb258ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 750,
+    location: "Costa Rica",
+    country: "Costa Rica",
+  },
+  {
+    title: "Historic Cottage in Charleston",
+    description:
+      "Experience the charm of historic Charleston in this beautifully restored cottage with a private garden.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1587381420270-3e1a5b9e6904?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTB8fGxvZGdlfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1600,
+    location: "Charleston",
+    country: "United States",
+  },
+  {
+    title: "Modern Apartment in Tokyo",
+    description:
+      "Explore the vibrant city of Tokyo from this modern and centrally located apartment.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1480796927426-f609979314bd?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTV8fHRva3lvfGVufDB8fDB8fHww&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 2000,
+    location: "Tokyo",
+    country: "Japan",
+  },
+  {
+    title: "Lakefront Cabin in New Hampshire",
+    description:
+      "Spend your days by the lake in this cozy cabin in the scenic White Mountains of New Hampshire.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1578645510447-e20b4311e3ce?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NDF8fGNhbXBpbmd8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1200,
+    location: "New Hampshire",
+    country: "United States",
+  },
+  {
+    title: "Luxury Villa in the Maldives",
+    description:
+      "Indulge in luxury in this overwater villa in the Maldives with stunning views of the Indian Ocean.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1439066615861-d1af74d74000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8NHx8bGFrZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 6000,
+    location: "Maldives",
+    country: "Maldives",
+  },
+  {
+    title: "Ski Chalet in Aspen",
+    description:
+      "Hit the slopes in style with this luxurious ski chalet in the world-famous Aspen ski resort.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MTh8fGxha2V8ZW58MHx8MHx8fDA%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 4000,
+    location: "Aspen",
+    country: "United States",
+  },
+  {
+    title: "Secluded Beach House in Costa Rica",
+    description:
+      "Escape to a secluded beach house on the Pacific coast of Costa Rica. Surf, relax, and unwind.",
+    image: {
+      filename: "listingimage",
+      url: "https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8Mnx8YmVhY2glMjBob3VzZXxlbnwwfHwwfHx8MA%3D%3D&auto=format&fit=crop&w=800&q=60"
+    },
+    price: 1800,
+    location: "Costa Rica",
+    country: "Costa Rica",
+  },
+];
+
+module.exports = { data: sampleListings };
+</file>
+
+<file path="learnings/1-express-routes/express-router-explanation-readme.md">
+The main idea of `Express Router` is:
+
+> **Instead of keeping all routes in `app.js`, divide routes according to models/features into separate files.**
+
+### 1. Before Router
+
+Your `app.js` becomes messy:
+
+```js
+app.get("/listings", ...)
+app.post("/listings", ...)
+app.get("/listings/:id", ...)
+app.put("/listings/:id", ...)
+app.delete("/listings/:id", ...)
+app.post("/listings/:id/reviews", ...)
+app.delete("/listings/:id/reviews/:reviewId", ...)
+
+// more models...
+```
+
+So we create: a folder named routes
+
+routes/
+   listings.js
+   reviews.js
+```
+---
+
+## 2. `routes/listings.js`
+
+Instead of `app.get()` we use **`router.get()`**.
+
+First create a router:
+
+const express = require("express");
+const router = express.Router();
+
+Then:
+
+router.get("/", ...)
+router.post("/", ...)
+router.get("/:id", ...)
+router.put("/:id", ...)
+router.delete("/:id", ...)
+
+Notice something important:
+
+### Before
+
+app.get("/listings/:id", ...)
+
+### Inside `listings.js`
+
+router.get("/:id", ...)
+
+We remove `/listings`.
+
+Why?
+Because we'll tell Express in `app.js`:
+
+app.use("/listings", listings);
+
+So Express combines them:
+/listings + /:id
+       ↓
+/listings/:id
+
+## 3. Export the router
+
+At the bottom of `routes/listings.js`:
+module.exports = router;
+
+Meaning:
+
+> "I'm giving this router to whoever requires this file."
+
+
+## 4. Now `app.js`
+
+Require the router:
+
+const listings = require("./routes/listings");
+// similarly
+const reviews = require("./routes/reviews");
+
+
+Then:
+app.use("/listings", listings);
+app.use("/listings/:id/reviews", reviews);
+
+Now Express knows:
+
+/listings
+    ↓
+use routes/listings.js
+
+and:
+
+/listings/:id/reviews
+    ↓
+use routes/reviews.js
+
+
+## 5. How the final path is formed
+
+Suppose `routes/listings.js` has:
+router.get("/:id", ...)
+
+and `app.js` has:
+app.use("/listings", listings);
+
+Express combines them:
+
+/listings + /:id
+       ↓
+/listings/:id
+
+
+
+So, 
+Your `app.js` mainly becomes responsible for:
+
+```js
+app.use("/listings", listings);
+app.use("/listings/:id/reviews", reviews);
+```
+
+while the actual route logic stays inside the respective files.
+---
+</file>
+
+<file path="learnings/2-cookie/cookie-readme.md">
+<!-- STUDY COOKIES CODE FROM LEARNING COOKIES FOLDER -->
+
+# Web Cookies 🍪
+
+# Part 1: What are Web Cookies? 🍪
+A **cookie** is a small piece of data stored by the user's **web browser**.
+
+Cookies are generally stored as: name : value
+### Example -> username : Kshitiz
+The browser saves this cookie.
+
+### Uses of Cookies
+
+- **Session management** → remember logged-in users
+- **Personalization** → remember user preferences
+- **Tracking** → remember user activity
+
+For now, we'll focus on **personalization**.
+
+---
+# Part 2: How do we send a Cookie in Express?
+
+Suppose we have:
+```js
+app.get("/setcookies", (req, res) => {
+    res.cookie("username", "Kshitiz");
+    res.send("Cookie sent!");
+});
+```
+
+### What happens?
+
+When user visits: /setcookies
+Express executes:
+```js
+res.cookie("username", "Kshitiz");
+```
+
+This tells the **browser**:
+Save this cookie: username : Kshitiz
+The browser stores it.
+
+### Then what?
+For future requests to that website, the browser automatically sends the cookie back:
+```text
+Browser
+   ↓
+Cookie: username=Kshitiz
+   ↓
+Server
+```
+
+So another route can receive that cookie.
+
+> **Important:** The cookie is automatically sent for requests that match the cookie's domain/path and other cookie rules. So, practically, it can be available across the site's routes when configured normally.
+
+---
+
+# Part 3: What does "Parsing Cookies" mean?
+
+Suppose we sent:
+```js
+res.cookie("username", "Kshitiz");
+```
+
+Now we want to read it:
+```js
+app.get("/greet", (req, res) => {
+    console.dir(req.cookies);
+});
+```
+
+But: "req.cookies"
+may be: undefined
+
+### Why?
+
+The browser sends cookies in the request as a **Cookie header**, and Express doesn't automatically convert that header into the convenient `req.cookies` object.
+
+We need **cookie-parser**.
+
+---
+
+## Using `cookie-parser`
+
+### 1. Install
+
+```bash
+npm i cookie-parser
+```
+
+### 2. Require it
+
+```js
+const cookieParser = require("cookie-parser");
+```
+
+### 3. Use it as middleware
+
+```js
+app.use(cookieParser());
+```
+
+Now `cookie-parser` reads/parses the incoming Cookie header and puts the cookies into: req.cookies
+
+---
+Then we can do: small practical use
+```js
+app.get("/greet", (req, res) => {
+    let { username } = req.cookies;
+
+    res.send(`Hi, ${username}`);
+});
+```
+
+**In one line:**  
+`res.cookie()` → **send/set cookie** 🍪 → Browser stores it → Browser sends it back → `cookie-parser` → `req.cookies` **reads it**.
+
+
+<!-- -----------SIGNED COOKIE------------->
+# Signed Cookies 🍪
+
+## 1. Normal Cookie vs Signed Cookie
+
+### Normal Cookie
+A normal cookie is simply:- name : value
+
+Example:
+```js
+res.cookie("color", "red");
+```
+
+Browser stores: color = red
+
+The problem is that the user can potentially **modify the cookie value** in the browser.
+
+---
+### Signed Cookie
+
+A **signed cookie** adds a signature using a **secret code**.
+```js
+app.use(cookieParser("secretcode"));
+```
+
+Then:
+```js
+res.cookie("color", "red", { signed: true });
+```
+
+The important purpose is:
+> **A signed cookie helps verify that the cookie value has not been modified/tampered with.**
+
+### ⚠️ Important
+
+A signed cookie is **not encrypted**.
+So its purpose is **not to hide sensitive data like passwords**.
+The secret is used to create/verify a **signature**, not to encrypt the cookie value.
+
+---
+
+# 2. Sending a Signed Cookie
+
+It is generally a **3-step process**.
+
+### Step 1: Give `cookie-parser` a secret
+```js
+app.use(cookieParser("secretcode"));
+```
+
+### Step 2: Send the cookie with `signed: true`
+```js
+app.get("/getsignedcookie", (req, res) => {
+    res.cookie("color", "red", { signed: true });
+
+    res.send("done!");
+});
+```
+
+# 3. Verifying the Signed Cookie
+To read signed cookies:
+```js
+app.get("/verify", (req, res) => {
+    res.send(req.signedCookies);
+});
+```
+
+`cookie-parser` checks the signature using the secret.
+
+### If cookie was NOT modified:
+
+```js
+req.signedCookies
+```
+will contain:
+
+```js
+{ color: "red" }
+```
+
+### If someone modified the cookie:
+The signature no longer matches.
+So the cookie will **not be accepted as a valid signed cookie** and it won't appear as a valid value in `req.signedCookies` (for example, you may get `{}` for that cookie).
+
+---
+### Remember this 🔑
+
+**Normal cookie → stores data**
+**Signed cookie → stores data + verifies it wasn't altered**
+**Signed ≠ encrypted**.
+</file>
+
+<file path="learnings/2-cookie/demoindex.js">
+const express = require('express');
+const app = express();
+
+app.listen(3000,()=>{
+    console.log("listening at port 3000");
+})
+
+
+//cookie parser -> to read cookies from browser (when its not used, we can set cookies in browser but we cannot read them beacause they are encrypted), so we need to use cookie parser to read cookies from browser
+const cookieParser = require('cookie-parser');
+// app.use(cookieParser()); //middleware to use cookie parser in our app
+
+
+//learning cookies
+app.get("/setcookie",(req,res)=>{
+    res.cookie("name","kshitiz");   //cookie name is "name" and cookie value is "kshitiz" -> this is the data which we want to store as cookie in browser
+    res.cookie("age","21");
+    res.send("cookies are set");
+})
+
+//root page
+app.get("/",(req,res)=>{
+    console.log(req.cookies);   //this will show all the cookies stored in browser
+    res.send("Hii, i am a root page, cookies are set in your browser, check it in inspect->application->cookies");
+})
+
+//practical use of cookies
+app.get("/greet", (req, res) => {
+    let { name, age } = req.cookies;
+    res.send(`Hi, ${name}, you are ${age} years old`);
+});
+
+
+// ----------------SIGNED COOKIES--------------------
+app.use(cookieParser("mysecretcode"));  //this is the secret key which will be used to sign the cookies. it is used to verify the integrity of the cookies and prevent tampering.
+
+app.get("/setsignedcookie", (req, res) => {
+    res.cookie("password", "1234abcd", { signed: true });    
+    res.send("Signed cookie is set");
+});
+
+app.get("/verify", (req, res) => {
+    console.log(req.signedCookies);   //this will show all the signed cookies stored in browser
+    res.send("Verified");
+});
+
+// if no alteration done in cookie, then it will show the signedcookie value, otherwise it will show undefined or {}.
+</file>
+
+<file path="learnings/3-express-sessions/views/flash.ejs">
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <p><%= msg %></p>
+    <h1>Welcome, <%= username %>!</h1>
+    
+</body>
+</html>
+</file>
+
+<file path="learnings/3-express-sessions/server.js">
+//------------------------PART 2------------------------------
+const express = require("express");
+const app = express();
+const path = require("path");
+
+app.listen(3000, () => {
+    console.log("server is running on port 3000");
+});
+
+
+//1.npm install express-session
+const session = require("express-session");
+
+// configuring session
+const sessionOptions = {
+    secret: "thisisasecret", // secret key to sign the session
+    resave: false, // forces the session to be saved back to the session store, even if the session was never modified during the request
+    saveUninitialized: true, // forces a session that is "uninitialized" to be saved to the store
+};
+app.use(session(sessionOptions));
+
+//open http://localhost:3000/test in browser->inspect->application->cookies->localhost->connect.sid(if something like this is there then session is working)
+//All tabs on same browser have same session id, even if we refresh the page.
+app.get("/test", (req, res) => {
+    res.send("test successful");
+});
+
+
+// -------------------------PART 3------------------------------
+//practical example 
+app.get("/viewcount", (req, res) => {
+    if (req.session.viewcount) {
+        req.session.viewcount++;    
+    } else {
+        req.session.viewcount = 1;
+    }
+    res.send(`You have viewed this page ${req.session.viewcount} times`);
+});
+
+
+// -------------------------PART 4-----------------------------
+// we need to give url with a query like this: http://localhost:3000/register?username=kshitiz
+app.get("/register", (req, res) => {
+    const { username } = req.query;
+    console.log(req.session);      //return a session object with a unique session ID and other properties
+    req.session.username = username;       // we can add any property to the session object and it will be stored in the session store
+    console.log(req.session);
+    res.send("username added to session, go to /welcome to see the username");
+});
+
+//even if we close the browser and open it again, the session will still be there because the session ID is stored in a cookie in the browser and the session data is stored in the server memory. 
+app.get("/welcome", (req, res) => {
+    if (req.session.username) {
+        res.send(`Welcome ${req.session.username}`);        
+    } 
+});
+
+
+
+// -------------------------PART 5-----------------------------
+// using connect-flahsh to show flash messages
+const flash = require("connect-flash");
+app.use(flash());
+
+//example
+app.get("/register2", (req, res) => {
+    const { username } = req.query;
+    req.session.username = username;       
+    req.flash("success", "new user registered successfully");      // we can add any property(key value pair) to the session object and it will be stored in the session store
+    res.redirect("/welcome2");
+});
+
+//we need view engine to show flash messages
+app.set("view engine", "ejs");         
+app.set("views", path.join(__dirname, "views"));
+
+
+//even if we close the browser and open it again, the session will still be there because the session ID is stored in a cookie in the browser and the session data is stored in the server memory. 
+// app.get("/welcome2", (req, res) => {
+
+//     res.render("flash.ejs", { username: req.session.username, msg:req.flash("success")});        // we can access the flash message in the view using msg variable
+// });
+
+
+// -------------------------PART 6-----------------------------
+//also a better way to show flash messages is to use middleware to set the flash message in res.locals so that we can access it in all views without having to set it in every route.
+app.use((req, res, next) => {
+    res.locals.msg = req.flash("success");  
+    next();
+});
+
+app.get("/welcome2", (req, res) => {       
+    res.render("flash.ejs", { username: req.session.username});       
+});
+</file>
+
+<file path="learnings/4-authentication/authentication-passport-readme.md">
+#Press Ctrl+k then V
+# Authentication, Password Hashing & Passport.js
+
+## Part 1: Authentication vs Authorization
+
+### 🔐 Authentication
+
+**Authentication = verifying who someone is.**
+
+Example:
+
+```text
+You enter:
+Username → kshitiz
+Password → ****
+
+        ↓
+
+Server verifies
+
+        ↓
+
+"Yes, this is Kshitiz"
+```
+
+Examples:
+- Login
+- Signup
+- Fingerprint
+- Google login
+
+👉 **Authentication = WHO are you?**
+
+---
+
+### 🛡️ Authorization
+
+**Authorization = checking what you are allowed to do.**
+
+Example:
+
+```text
+Student → Can view result
+Student → ❌ Cannot update result
+
+Teacher/Admin → Can update result
+```
+
+👉 **Authorization = WHAT are you allowed to do?**
+
+### Easy difference
+
+> **Authentication → Who are you?**  
+> **Authorization → What can you access/do?**
+
+---
+
+## Part 2: How Passwords Are Stored
+
+We **never store the original password** in the database.
+
+❌ Bad:
+
+```text
+username: kshitiz
+password: Mypassword
+```
+
+Instead, we store a **hashed version**:
+
+```text
+"Mypassword"
+      ↓
+ Hashing function
+      ↓
+"bivrn994i0nidh03fhhh904f4ni904"
+```
+
+So database contains:
+
+```text
+username: kshitiz
+password: hashed_value
+```
+
+### How does login work?
+
+Suppose you enter:
+
+```text
+Mypassword
+```
+
+During login:
+
+```text
+Mypassword
+     ↓
+Same hashing process
+     ↓
+bivrn994i0nidh03fhhh904f4ni904
+     ↓
+Compare with database hash
+     ↓
+Match ✅ → Login successful
+```
+
+We don't need to convert the stored hash back to the original password.
+
+---
+
+## Part 3: Properties of Hashing Functions
+
+### 1. Fixed-length output
+
+Different input sizes can produce an output of a **fixed length**.
+
+```text
+"hello"       → ABC123...
+"mypassword"  → XYZ789...
+```
+
+### 2. One-way function
+
+```text
+Password
+   ↓
+Hash
+```
+
+is easy.
+
+But:
+
+```text
+Hash
+  ↓
+Original password
+```
+
+should **not be possible**.
+
+### 3. Different input → different output
+
+```text
+"hello" → ABC123...
+"Hello" → XYZ789...
+```
+
+Even a small difference normally produces a different hash.
+
+### 4. Small change → huge change
+
+For example:
+
+```text
+"password"
+     ↓
+Hash A
+
+"Password"
+     ↓
+Completely different Hash B
+```
+
+This property is called the **avalanche effect**.
+
+---
+
+## Part 4: Salting
+
+**Salting = adding a random string to the password before hashing.**
+
+Suppose:
+
+```text
+Password = "password"
+Salt     = "%@?"
+```
+
+Instead of:
+
+```text
+password → hash
+```
+
+we do:
+
+```text
+password + "%@?"
+       ↓
+"password%@?"
+       ↓
+     hash
+       ↓
+hashed password
+```
+
+### Why?
+
+Suppose two users have the same password:
+
+```text
+User A → password
+User B → password
+```
+
+Without salt:
+
+```text
+User A → same hash
+User B → same hash
+```
+
+With different salts:
+
+```text
+User A:
+password + saltA → hashA
+
+User B:
+password + saltB → hashB
+```
+
+So even if their passwords are the same, their stored hashes can be different.
+
+👉 **Salt makes password storage stronger against attacks such as precomputed/rainbow-table attacks.**
+
+---
+
+## Part 5: Passport.js
+
+**Passport.js is used mainly for authentication.**
+
+It provides different authentication strategies.
+
+For example, users can authenticate using:
+
+```text
+Username + Password
+        OR
+Google
+        OR
+Microsoft
+        OR
+LinkedIn
+        OR
+other providers
+```
+
+### For username/password authentication
+
+Install:
+
+```bash
+npm i passport
+npm i passport-local
+npm i passport-local-mongoose
+```
+
+### What each one does?
+
+**`passport`**
+
+→ Main authentication framework.
+
+**`passport-local`**
+
+→ Allows authentication using a local username/password.
+
+**`passport-local-mongoose`**
+
+→ Makes it easier to use Passport with a Mongoose User model, including password hashing/authentication functionality.
+
+---
+
+## Part 6: Configuring Passport Strategy
+
+### 1. `passport.initialize()`
+
+```js
+app.use(passport.initialize());
+```
+
+This **initializes Passport** in our Express application.
+
+```text
+Express App
+    ↓
+Passport initialized
+    ↓
+Passport can handle authentication
+```
+
+### 2. `passport.session()`
+
+```js
+app.use(passport.session());
+```
+
+This allows Passport to use **sessions**.
+
+Why?
+
+After login, we don't want the user to authenticate again on every page.
+
+```text
+Login
+  ↓
+Authentication successful
+  ↓
+Session created
+  ↓
+User moves between pages
+  ↓
+Passport remembers the user
+```
+
+This requires Express sessions to be configured.
+
+### 3. Local Strategy
+
+```js
+passport.use(new LocalStrategy(User.authenticate()));
+```
+
+This tells Passport:
+
+> **"When someone logs in using username/password, use `User.authenticate()` to verify them."**
+
+Flow:
+
+```text
+User enters
+username + password
+        ↓
+Passport LocalStrategy
+        ↓
+User.authenticate()
+        ↓
+Check stored credentials
+        ↓
+Valid? ──────→ ✅ Login
+   │
+   └──────────→ ❌ Reject
+```
+
+---
+
+## Serialize and Deserialize User
+
+These are used when **Passport + Session** are working together.
+
+### `serializeUser()`
+
+After successful login:
+
+```text
+User
+ ↓
+serializeUser()
+ ↓
+Store user's identifier in session
+```
+
+Think:
+
+> **Serialize = User → Session**
+
+### `deserializeUser()`
+
+On a later request:
+
+```text
+Session
+   ↓
+deserializeUser()
+   ↓
+Find user from database
+   ↓
+req.user
+```
+
+Think:
+
+> **Deserialize = Session → User**
+
+### Complete flow
+
+```text
+LOGIN
+  ↓
+Username + Password
+  ↓
+LocalStrategy
+  ↓
+User.authenticate()
+  ↓
+✅ Authentication successful
+  ↓
+serializeUser()
+  ↓
+User ID stored in session
+  ↓
+Next request
+  ↓
+deserializeUser()
+  ↓
+Find user from DB
+  ↓
+req.user
+```
+
+---
+
+## 🔑 Quick Revision
+
+- **Authentication** = Who are you?
+- **Authorization** = What can you do?
+- **Hashing** = Don't store the original password.
+- **Salting** = Add random data before hashing.
+- **Passport** = Handles authentication.
+- **Serialize** = User → Session.
+- **Deserialize** = Session → User.
+</file>
+
+<file path="models/user.js">
+// we have to create a schema for data of users who will register on our website
+
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+const passportLocalMongoose = require('passport-local-mongoose');
+
+//in user schema, no need to add username and password fields as passport-local-mongoose will automatically add them to our schema and will also add some methods to our schema to hash and salt the password and save it in DB
+const userschema = new Schema({
+    email : {
+        type : String,
+        required : true,
+    }
+})
+
+userschema.plugin(passportLocalMongoose); // this will add username and password fields to our schema.
+
+// now we will create model->"user" for this schema and export it
+const user = mongoose.model("user", userschema);
+module.exports = user;
+</file>
+
+<file path="public/js/app.js">
+// Example starter JavaScript for disabling form submissions if there are invalid fields
+(() => {
+    'use strict'
+
+    // Fetch all the forms we want to apply custom Bootstrap validation styles to
+    const forms = document.querySelectorAll('.needs-validation')
+
+    // Loop over them and prevent submission
+    Array.from(forms).forEach(form => {
+        form.addEventListener('submit', event => {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+</file>
+
+<file path="routes/beforeMVClisting.js">
+//1. require express and creating router
+//2. replace all app.****() with router.****()
+//3. remove /listings from all routes because we are already using it in app.use("/listings",listingRoutes); in index.js
+//4. export router at the end of file
+
+const express = require("express");
+const router = express.Router();
+
+//5.require all the models and schema and utils which are used in this file(by the routes) 
+//6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
+
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
+
+const Listing = require("../models/listing.js"); 
+const asyncwrap = require("../utils/wrapasync.js");
+const { validatelisting } = require("../middleware.js");  //importing validatelisting function from middleware.js to use it here in our routes to validate the form data from server side using joi schema
+const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
+const { isOwner } = require("../middleware.js");  //importing isOwner function from middleware.js to use it here in our routes to check if currently logged in user is the owner of the listing or not
+
+
+
+
+// Our all listing routes
+// index route
+router.get("/", asyncwrap(async (req, res) => {
+    const allListings = await Listing.find({});
+    res.render("listings/index.ejs", { allListings })
+}))
+
+//new route
+router.get("/new", isLoggedIn, (req, res) => {
+    res.render("listings/new.ejs");
+})
+
+//create route
+router.post("/",isLoggedIn ,validatelisting, asyncwrap(async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+    
+
+
+    let { title, description, image, price, location, country } = req.body;
+    let newlisting = new Listing({
+        title: title,
+        description: description,
+        image: image,
+        price: price,
+        location: location,
+        country: country,
+        owner: req.user._id  //storing the id of the user who created this listing in the "owner" field of that particular listing 
+    })
+    await newlisting.save();
+
+    //adding flash message -> "new listing added successfully"
+    req.flash("success", "new listing added successfully");  //key="success"
+    res.redirect("/listings")
+}))
+
+
+// show route
+router.get("/:id", asyncwrap(async (req, res) => {
+    let { id } = req.params;
+    //populate("reviews") is a mongoose method which is used here to get all the reviews of that particular listing whose id is given in url , basically it fetches all the details (rating and comment) of reviews whose object ids are stored in "reviews" array of that particular listing 
+    // without populate method we will only get array of object ids of reviews not their details such as (comment and rating)
+    const idlisting = await Listing.findById(id).populate("reviews").populate("owner");  //populate("owner") is a mongoose method which is used here to get the details of the owner of that particular listing whose id is given in url , basically it fetches all the details (username and email) of owner whose object id is stored in "owner" field of that particular listing
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
+    res.render("listings/show.ejs", { idlisting })
+}))
+
+// edit route
+router.get("/:id/edit",isLoggedIn, isOwner, asyncwrap(async (req, res) => {
+    let { id } = req.params;
+    const idlisting = await Listing.findById(id);
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
+    res.render("listings/edit.ejs", { idlisting })
+}))
+
+router.put("/:id",isLoggedIn, isOwner, validatelisting , asyncwrap(async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+
+    
+    let { id } = req.params;
+    let { title, description, image, price, location, country } = req.body;
+    await Listing.findByIdAndUpdate(id, {
+        title: title,
+        description: description,
+        image: image,
+        price: price,
+        location: location,
+        country: country,
+    });
+    res.redirect(`/listings/${id}`);
+}))
+
+// delete route
+router.delete("/:id", isLoggedIn, isOwner, asyncwrap(async (req, res) => {
+    let { id } = req.params;
+    await Listing.findByIdAndDelete(id);
+    res.redirect("/listings");
+}))
+
+
+module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ***TO understand the below code(concepts of error and async handling) see this project codes before routing***
+
+
+
+
+// //  Now as we are using databse we may get async errors ,like - price me number ke jgh string daal diya form me ___OR___ galat _id daal diya url me 
+// // so to handle such async errors we are making our wrapasync.js and custom error class inside UTILS folder
+// // importing custom error class
+
+// const ExpressError = require("./utils/ExpressError.js")
+
+// // importing here asyncwrap function
+
+// const asyncwrap = require("./utils/wrapasync.js");
+// const { error } = require("console");
+
+
+// // NOW jitne bhi async code hai sabko wrap krdo or send krdo as a input inside asyncwrap() function
+
+
+// //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+// //so to handle form validations from server side
+
+// const validatelisting = (req,res,next) => {
+//     let {error} = listingSchema.validate(req.body);
+//     if(error){
+//         let errMsg = error.details.map(el => el.message).join(",");
+//         throw new ExpressError(400, errMsg);
+//     }else{
+//         next();
+//     }
+// }
+</file>
+
+<file path="views/includes/flash.ejs">
+<% if(success && success.length) { %>
+    <div class="col-6 offset-3 alert alert-success alert-dismissible fade show" role="alert">
+        <%= success %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<% } %>
+
+
+<% if(error && error.length) { %>
+    <div class="col-6 offset-3 alert alert-danger alert-dismissible fade show" role="alert">
+        <%= error %>
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+<% } %>
+</file>
+
+<file path="views/includes/footer.ejs">
+<footer class="f-info ">
+    <div class="f-info-socials">
+        <i class="fa-brands fa-square-facebook"></i>
+        <i class="fa-brands fa-square-instagram"></i>
+        <i class="fa-brands fa-linkedin"></i>
+    </div>
+
+    <div>&copy; Wanderlust Private Limited</div>
+
+    <div class="f-info-links">
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+    </div>
+</footer>
+</file>
+
+<file path="views/listings/home.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+    <body>
+        <h1>Home Page or Landing page here</h1>
+        <a href="/listings" class="show-route-btn show-route-viewall-btn">View all listings</a>
+    </body>
+</file>
+
+<file path="views/users/login.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+<div class="auth-container mt-3">
+    <h2>Login to Wanderlust</h2>
+
+    <form action="/login" method="POST" class="auth-form needs-validation" novalidate>
+        <div class="auth-form-input">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" required>
+            <div class="invalid-feedback">Please enter your username.</div>
+        </div>
+
+        <div class="auth-form-input">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+            <div class="invalid-feedback">Please enter your password.</div>
+        </div>
+
+        <button type="submit">Login</button>
+    </form>
+</div>
+</file>
+
+<file path="views/users/signup.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+<div class="auth-container mt-3">
+    <h2>Sign Up on Wanderlust</h2>
+
+    <form action="/signup" method="POST" class="auth-form needs-validation" novalidate>
+        <div class="auth-form-input">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" class="form-control" id="username" name="username" required>
+            <div class="invalid-feedback">Please enter a username.</div>
+        </div>
+
+        <div class="auth-form-input">
+            <label for="email" class="form-label">Email address</label>
+            <input type="email" class="form-control" id="email" name="email" required>
+            <div class="invalid-feedback">Please enter a valid email address.</div>
+        </div>
+
+        <div class="auth-form-input">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" class="form-control" id="password" name="password" required>
+            <div class="invalid-feedback">Please enter a password.</div>
+        </div>
+
+        <button type="submit">Sign Up</button>
+    </form>
+</div>
+</file>
+
+<file path="views/error.ejs">
+<!-- whenever any error occurs we can show them in a more beautiful way by sending error.ejs -->
+<% layout("/layouts/boilerplate.ejs") %>
+
+<!-- bootstrap se ALERTS section se likha hai -->
+ <div class="row">
+     <div class="alert alert-danger" role="alert">
+        <h4><%=message%></h4>
+     </div>
+ </div>
+</file>
+
+<file path=".gitignore">
+.env
+node_modules/
+</file>
+
+<file path="middleware.js">
+const Listing = require("./models/listing");
+const Review = require('./models/review.js');
+const {listingSchema} = require("./schema.js");
+const ExpressError = require("./utils/ExpressError.js")
+const {reviewSchema } = require('./schema.js');
+
+
+//validating the form data from server side using joi schema
+module.exports.validatelisting = (req,res,next) => {
+    let {error} = listingSchema.validate(req.body);
+    if(error){
+        let errMsg = error.details.map(el => el.message).join(",");
+        throw new ExpressError(400, errMsg);
+    }else{
+        next();
+    }
+}
+
+//validating the review form data from server side using joi schema
+module.exports.validatereview = (req,res,next) => {
+    let {error} = reviewSchema.validate(req.body);
+    if(error){
+        let errMsg = error.details.map(el => el.message).join(",");
+        throw new ExpressError(400, errMsg);
+    }else{
+        next();
+    }
+}
+
+
+
+//if user is not logged in and he tries to create a new listing then we will show a flash messsage and redirect him to login page -> and this check is done by passport.js method "req.isAuthenticated()" which returns true if user is logged in and false if not
+module.exports.isLoggedIn = (req, res, next) => {
+    if(!req.isAuthenticated()) {
+        //req.originalUrl -> returns the url of the page from which user was redirected to login page, so after login we will redirect him back to that page
+        //rdirectUrl is a custom property(key) we are adding to req.session object to store the url of the page from which user was redirected to login page
+        req.session.redirectUrl = req.originalUrl;
+
+        req.flash("error", "you must be logged in first");  //key="error"
+        return res.redirect("/login");
+    }
+    next();
+}
+
+
+module.exports.saveRedirectUrl = (req, res, next) => {
+    if(req.session.redirectUrl) {
+        res.locals.redirectUrl = req.session.redirectUrl
+    }
+    next();
+}
+
+
+module.exports.isOwner = async (req, res, next) => {
+    let { id } = req.params;
+    const idlisting = await Listing.findById(id);
+    if(!idlisting.owner.equals(res.locals.currentUser._id)) {  //checking if the user who is trying to edit this listing is the owner of this listing or not
+        req.flash("error", "you are not the owner of this listing");  //key="error"
+        return res.redirect(`/listings/${id}`);
+    }
+    next();
+}
+
+
+
+
+module.exports.isReviewAuthor = async (req, res, next) => {
+    let {id,reviewid} = req.params;
+    const review = await Review.findById(reviewid);
+    if(!review.author.equals(res.locals.currentUser._id)) {  //checking if the user who is trying to edit this listing is the owner of this listing or not
+        req.flash("error", "you are not the author of this review");  //key="error"
+        return res.redirect(`/listings/${id}`);
+    }
+    next();
+}
+</file>
+
+<file path="init/init.js">
+const mongoose = require("mongoose");
+const initdata = require("./data.js");
+const Listing = require("../models/listing.js") 
+
+main().then(() => {
+    console.log("connection successfull")
+})
+    .catch(err => console.log(err));
+
+async function main() {
+    await mongoose.connect('mongodb://127.0.0.1:27017/wanderlust');
+}
+
+const initDB = async () => {
+    await Listing.deleteMany({});
+    initdata.data = initdata.data.map((obj) => {
+        return { ...obj, owner: "6ac8a411f44319fd6f5ea387" }; // Replace with actual user ID
+    });
+    await Listing.insertMany(initdata.data).then((res) => console.log(res)).catch((err) => { console.log(err) });
+}
+
+initDB();
+</file>
+
+<file path="learnings/3-express-sessions/express-session-knowledge.md">
+# Part 1 — What is State?
+
+**State = information about what happened before and needs to be remembered for future requests.**
+
+For example, on Amazon:
+
+```text
+You → Login
+You → Open Electronics
+You → Add Laptop to Cart
+You → Open Beauty section
+```
+
+HTTP by itself doesn't remember that **the laptop was added to your cart**. Each HTTP request is treated independently.
+
+This is why we need mechanisms like **sessions** to maintain state.
+
+---
+
+## Stateful vs Stateless
+
+### 🟢 Stateful
+
+A **stateful protocol** keeps information about the previous communication/session.
+
+Example from the screenshot:
+**FTP** is stateful.
+
+The server remembers things such as:
+```text
+Who is connected?
+What is their current session?
+Where are they in the file transfer?
+```
+
+### 🟡 Stateless
+
+A **stateless protocol** does not remember previous requests by itself.
+
+Example:
+
+**HTTP is stateless.**
+
+```text
+Request 1 → Server
+Request 2 → Server
+Request 3 → Server
+```
+
+The server doesn't automatically know that Request 2 came from the same user as Request 1.
+
+---
+
+### 💰 Simple money-transfer analogy
+
+Think of two ways of transferring money.
+
+**Cash:**
+
+```text
+A → gives ₹500 cash → B
+```
+
+Once the transaction is finished, there isn't an ongoing system that needs to remember A and B's previous interaction.
+
+**UPI:**
+
+```text
+A → UPI request → Bank Server
+                  ↓
+             Transaction
+                  ↓
+             Transaction status
+```
+
+The banking system needs to maintain information about the transaction while it is being processed.
+
+> This is just an analogy for understanding **state**. UPI itself should not simply be classified as a "stateful protocol" based on this example.
+
+---
+
+# Part 2 — Express Sessions
+
+## What does Express Session do?
+
+`express-session` helps us make our normally **stateless HTTP application behave statefully**.
+
+Suppose Amazon has two users:
+
+```text
+USER 1
+Session ID = 101
+Items:
+   → Laptop
+   → Charger
+
+
+USER 2
+Session ID = 102
+Items:
+   → Shirt
+   → Pants
+```
+
+The server stores this session information separately.
+
+```text
+                    SERVER
+              ┌─────────────────┐
+Session 101 → │ Laptop          │
+              │ Charger         │
+              └─────────────────┘
+
+Session 102 → ┌─────────────────┐
+              │ Shirt           │
+              │ Pants           │
+              └─────────────────┘
+```
+
+The browser stores the **Session ID (SID)** in a cookie.
+
+```text
+Browser
+   │
+   │ Cookie: connect.sid = 101
+   ↓
+Server
+   │
+   ↓
+Find session 101
+   │
+   ↓
+Laptop + Charger
+```
+
+So when the user moves from:
+
+```text
+/electronics
+        ↓
+/beauty
+```
+
+HTTP itself doesn't remember the previous request.
+
+But the browser sends the same **SID**, allowing Express Session to find that user's session data.
+
+### Simple diagram
+
+```text
+                  BROWSER
+                     │
+              Cookie: SID=101
+                     │
+                     ↓
+              EXPRESS SERVER
+                     │
+              Find Session 101
+                     │
+                     ↓
+        ┌────────────────────────┐
+        │ Session 101            │
+        │ cart: Laptop, Charger  │
+        │ username: Kshitiz      │
+        └────────────────────────┘
+```
+
+---
+
+# Express Session Code
+
+### 1. Install
+
+```bash
+npm i express-session
+```
+
+### 2. Require
+
+```js
+const session = require("express-session");
+```
+
+### 3. Configure session
+
+```js
+app.use(session({
+    secret: "thisisasecret"
+}));
+```
+
+The `secret` is used to **sign the session ID cookie** so the server can detect tampering.
+
+---
+
+### 4. Now create a route
+
+```js
+app.get("/test", (req, res) => {
+    res.send("test successful");
+});
+```
+
+When you visit:
+
+```text
+http://localhost:3000/test
+```
+
+Express Session creates a **session for you** and sends a session ID cookie, commonly named something like:
+
+```text
+connect.sid
+```
+
+You can see it in:
+
+```text
+Inspect
+   ↓
+Application
+   ↓
+Cookies
+   ↓
+localhost:3000
+```
+
+---
+
+# Part 3 — Exploring Session Options
+
+## Why is SID same in multiple Chrome tabs?
+
+Suppose you open:
+
+```text
+Chrome Tab 1 → localhost:3000/test
+Chrome Tab 2 → localhost:3000/test
+Chrome Tab 3 → localhost:3000/test
+```
+
+All tabs normally belong to the **same browser session/profile**.
+
+Therefore they share the same cookies:
+
+```text
+Chrome
+ ├── Tab 1 ──┐
+ ├── Tab 2 ──┼── SID = 101
+ └── Tab 3 ──┘
+```
+
+Similarly:
+
+```text
+IE Tab 1 ──┐
+IE Tab 2 ──┼── SID = 202
+IE Tab 3 ──┘
+```
+
+Chrome and IE have different cookie storage.
+
+Therefore:
+
+```text
+Chrome SID = 101
+IE SID     = 202
+```
+
+Even though both visit:
+
+```text
+localhost:3000/test
+```
+
+### Practical meaning
+
+This allows the server to distinguish:
+
+```text
+Chrome user → Session 101
+IE user     → Session 202
+```
+
+---
+
+# `viewcount` Example
+
+```js
+app.get("/viewcount", (req, res) => {
+    if (req.session.viewcount) {
+        req.session.viewcount++;
+    } else {
+        req.session.viewcount = 1;
+    }
+
+    res.send(`You have viewed this page ${req.session.viewcount} times`);
+});
+```
+
+### First visit
+
+No `viewcount` exists:
+
+```text
+undefined
+   ↓
+viewcount = 1
+```
+
+Response:
+
+```text
+You have viewed this page 1 times
+```
+
+### Second visit
+
+Session remembers:
+
+```text
+viewcount = 1
+```
+
+Then:
+
+```text
+1 → 2
+```
+
+Response:
+
+```text
+You have viewed this page 2 times
+```
+
+### Third visit
+
+```text
+2 → 3
+```
+
+So:
+
+```text
+Browser
+   ↓ SID=101
+Server
+   ↓
+Session 101
+   ↓
+viewcount = 3
+```
+
+That's the practical use of a session: **storing information specific to a particular user/session across multiple requests.**
+
+---
+
+# ⚠️ Session Storage Warning
+
+The screenshot says:
+
+> `MemoryStore` is not designed for a production environment.
+
+By default, Express Session uses **MemoryStore**.
+
+It stores session data in the server's memory.
+
+Problems:
+
+- ❌ Not suitable for production
+- ❌ Can leak memory
+- ❌ Doesn't scale properly across multiple server processes/instances
+- ✅ Fine for learning and development
+
+In production, we normally use a proper session store such as **MongoDB, Redis, etc.**
+
+---
+
+# Part 4 — Storing and Using Sessions
+
+## Register
+
+We have:
+
+```js
+app.get("/register", (req, res) => {
+    const { username } = req.query;
+
+    console.log(req.session);
+
+    req.session.username = username;
+
+    console.log(req.session);
+
+    res.send("username added to session, go to /welcome to see the username");
+});
+```
+
+Visit:
+
+```text
+http://localhost:3000/register?username=kshitiz
+```
+
+### Step 1
+
+```js
+const { username } = req.query;
+```
+
+Gets:
+
+```text
+username = kshitiz
+```
+
+### Step 2
+
+```js
+req.session.username = username;
+```
+
+Now the session contains:
+
+```js
+{
+    username: "kshitiz"
+}
+```
+
+The session is associated with the user's SID.
+
+---
+
+## Welcome
+
+```js
+app.get("/welcome", (req, res) => {
+    if (req.session.username) {
+        res.send(`Welcome ${req.session.username}`);
+    }
+});
+```
+
+When the user visits:
+
+```text
+/welcome
+```
+
+the browser sends the SID:
+
+```text
+SID
+ ↓
+Server
+ ↓
+Find corresponding session
+ ↓
+username = kshitiz
+ ↓
+Welcome kshitiz
+```
+
+### Important correction
+
+With the default session configuration, the session ID cookie is generally a **session cookie**, so you should **not assume the session will survive closing the browser**. Its behavior depends on the cookie configuration/browser.
+
+The important concept is:
+
+```text
+Cookie → stores SID
+Server-side session store → stores session data
+```
+
+---
+
+# Part 5 — `connect-flash`
+
+## What is `connect-flash`?
+
+`connect-flash` is used to show **temporary messages** to the user.
+
+Examples:
+
+```text
+"Login successful!"
+"Invalid password!"
+"New user registered successfully!"
+"Listing deleted successfully!"
+```
+
+The flash message is stored in the **session** and is generally meant to be read once and then removed.
+
+---
+
+## Step 1 — Install
+
+```bash
+npm i connect-flash
+```
+
+## Step 2 — Require
+
+```js
+const flash = require("connect-flash");
+```
+
+## Step 3 — Middleware
+
+```js
+app.use(flash());
+```
+
+This is used **after session middleware is configured**, because flash messages use the session.
+
+---
+
+# Using Flash Message
+
+```js
+app.get("/register2", (req, res) => {
+    const { username } = req.query;
+
+    req.session.username = username;
+
+    req.flash(
+        "success",
+        "new user registered successfully"
+    );
+
+    res.redirect("/welcome2");
+});
+```
+
+Suppose we visit:
+
+```text
+/register2?username=kshitiz
+```
+
+### What happens?
+
+```text
+username = kshitiz
+       ↓
+Store username in session
+       ↓
+Store flash message in session
+       ↓
+Redirect to /welcome2
+```
+
+---
+
+## `/welcome2`
+
+```js
+app.get("/welcome2", (req, res) => {
+    res.render("flash.ejs", {
+        username: req.session.username,
+        msg: req.flash("success")
+    });
+});
+```
+
+Here:
+
+```js
+req.flash("success")
+```
+
+gets the flash message.
+
+So:
+
+```js
+msg
+```
+
+contains:
+
+```text
+new user registered successfully
+```
+
+---
+
+# EJS File
+
+```ejs
+<body>
+    <p><%= msg %></p>
+
+    <h1>Welcome, <%= username %>!</h1>
+</body>
+```
+
+The browser finally sees:
+
+```text
+new user registered successfully
+
+Welcome, kshitiz!
+```
+
+### Complete flow
+
+```text
+/register2?username=kshitiz
+            ↓
+     Store username
+            ↓
+     Store flash message
+            ↓
+       redirect()
+            ↓
+        /welcome2
+            ↓
+     req.flash("success")
+            ↓
+          msg
+            ↓
+         EJS page
+```
+
+---
+
+# Part 6 — Using `res.locals`
+
+Previously we did:
+
+```js
+app.get("/welcome2", (req, res) => {
+    res.render("flash.ejs", {
+        username: req.session.username,
+        msg: req.flash("success")
+    });
+});
+```
+
+Now:
+
+```js
+app.get("/welcome2", (req, res) => {
+    res.locals.msg = req.flash("success");
+
+    res.render("flash.ejs", {
+        username: req.session.username
+    });
+});
+```
+
+### What changed?
+
+Before:
+
+```text
+Route
+ ↓
+Pass msg manually
+ ↓
+EJS
+```
+
+Now:
+
+```text
+Route
+ ↓
+res.locals.msg
+ ↓
+EJS
+```
+
+`res.locals` contains variables that are automatically available to the view rendered by that response.
+
+So in EJS you can still use:
+
+```ejs
+<p><%= msg %></p>
+```
+
+without passing `msg` inside `res.render()`.
+
+---
+
+# Even Better — Use Middleware
+
+Instead of writing this in every route:
+
+```js
+res.locals.msg = req.flash("success");
+```
+
+we can create middleware:
+
+```js
+app.use((req, res, next) => {
+    res.locals.msg = req.flash("success");
+    next();
+});
+```
+
+Now this runs for every request.
+
+Then:
+
+```js
+app.get("/welcome2", (req, res) => {
+    res.render("flash.ejs", {
+        username: req.session.username
+    });
+});
+```
+
+No need to write:
+
+```js
+res.locals.msg = ...
+```
+
+inside every route.
+
+### Flow
+
+```text
+Request
+   ↓
+Flash Middleware
+   ↓
+req.flash("success")
+   ↓
+res.locals.msg
+   ↓
+next()
+   ↓
+Route
+   ↓
+res.render()
+   ↓
+EJS can directly use `msg`
+```
+
+### Why is this better?
+
+Because flash messages are usually needed across **many different routes**.
+
+Instead of repeating:
+
+```js
+res.locals.msg = req.flash("success");
+```
+
+everywhere, we write it **once as middleware**.
+
+---
+
+## 🔑 Final Picture
+
+```text
+                EXPRESS SESSION
+                      │
+             ┌────────┴────────┐
+             ↓                 ↓
+        Session ID          Session Data
+          (cookie)        (server-side)
+             │                 │
+             │                 ├── username
+             │                 ├── viewcount
+             │                 └── flash messages
+             │
+             ↓
+          Browser
+```
+
+And the overall idea is:
+
+**Remember:**
+
+> **Cookie → identifies the session**  
+> **Session → stores user-specific data**  
+> **Flash → temporary message stored in session**  
+> **res.locals → makes data easily available to EJS**
+
+
+
+
+
+🍪 cookie.expires
+expires decides when the cookie should be deleted by the browser.
+Example:
+cookie: {
+    expires: Date.now() + 1000 * 60 * 60 * 24 * 7
+}
+
+This means:
+Current time + 7 days
+     ↓
+Cookie expires
+
+So the website can decide how long it wants to remember the user.
+Example
+LinkedIn → cookie expires after 30 days
+             ↓
+        User stays logged in
+
+Another website → cookie expires after 7 days
+                  ↓
+             User must login again
+
+
+What happens by default?
+If you don't specify an expiration time, the cookie is generally a session cookie.
+Open browser
+     ↓
+Cookie exists
+     ↓
+Close browser
+     ↓
+Cookie is deleted
+
+So the user may need to log in again when they reopen the browser.
+
+
+maxAge
+Instead of specifying an exact expiration date, we can say:
+"Keep this cookie for X milliseconds."
+
+maxAge: 1000 * 60 * 60 * 24 * 7
+
+Means:
+1000 ms
+× 60       = 1 minute
+× 60       = 1 hour
+× 24       = 1 day
+× 7        = 7 days
+
+So:
+maxAge = 7 days
+</file>
+
+<file path="routes/user.js">
+const express = require("express");
+const router = express.Router();
+const User = require("../models/user.js");
+const asyncwrap = require("../utils/wrapasync.js");
+const passport = require("passport");
+const {saveRedirectUrl} = require("../middleware.js"); //importing saveRedirectUrl function from middleware.js to use it here in our routes to save the url of the page from which user was redirected to login page
+const userController = require("../controllers/usercontroller.js");
+
+router.get("/signup", (req, res) => {
+    res.render("users/signup.ejs");
+});
+router.post("/signup", asyncwrap(userController.signUp)); 
+
+
+router.get("/login", (req,res)=>{
+    res.render("users/login.ejs");
+})
+router.post("/login", saveRedirectUrl, passport.authenticate("local", {failureRedirect: "/login", failureFlash: true}), userController.logIn);
+
+
+// logout route - passport provides a logout method to log the user out and destroy the session "req.logout()" and then we will redirect the user to /listings page
+router.get("/logout", userController.logOut);
+
+
+module.exports = router;
+</file>
+
+<file path="utils/ExpressError.js">
+//this is custom error class to handle express errors more effectively which inherits default error class of javascript
+class ExpressError extends Error{
+    constructor(status,message){
+        super();
+        this.status = status;
+        this.message = message;
+    }
+}
+
+module.exports = ExpressError;
+</file>
+
+<file path="views/includes/navbar.ejs">
+<nav class="navbar navbar-expand-md bg-body-light border-bottom sticky-top">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="/"><i class="fa-regular fa-compass"></i></a>
+        <div class="collapse navbar-collapse" id="navbarNavAltMarkup">
+            <div class="navbar-nav">
+                <a class="nav-link active" href="/">Home</a>
+                <a class="nav-link" href="/listings">All Listings</a>
+                <a class="nav-link" href="/listings/new">Add new Listing</a>
+            </div>
+            <div class="navbar-nav ms-auto">
+                <% if(!currentUser){ %>
+                    <a class="nav-link active" href="/signup">signup</a>
+                    <a class="nav-link" href="/login">Login</a>
+                <% } if(currentUser){ %>
+                    <a class="nav-link" href="/logout">Logout</a>
+                <% } %>
+            </div>
+        </div>
+    </div>
+</nav>
+</file>
+
+<file path="views/layouts/boilerplate.ejs">
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WanderLust</title>
+    <!-- bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-LN+7fdVzj6u52u30Kp6M/trliBMCMKTyK833zpbD+pXdCLuTusPj697FH4R/5mcr" crossorigin="anonymous">
+
+    <!-- font awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+        integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- main css -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+
+<body>
+    <%- include("../includes/navbar.ejs") %>
+        <div class="container">
+            <%- include("../includes/flash.ejs") %> 
+            <%- body %>
+        </div>
+        <%- include("../includes/footer.ejs") %>
+
+            <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js"
+                integrity="sha384-ndDqU0Gzau9qJ1lfW4pNLlhNTkCfHzAVBReH9diLvGRem5+R9g2FzA8ZGN954O5Q"
+                crossorigin="anonymous"></script>
+            <script src="/js/app.js"></script>
+</body>
+
+</html>
+</file>
+
+<file path="views/listings/edit.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+<!-- same to same form as new.ejs so go read there to understand -->
+    <body>
+
+        <div class="new-route-container">
+            <h2>Edit your Listing</h2>
+            <!-- method = put because we are updating an existing listing and sending it to server at /listings/:id -->
+            <form class="new-form needs-validation" novalidate method="post"
+                action="/listings/<%=idlisting._id%>?_method=PUT" enctype="multipart/form-data">
+                <div class="new-route-form-input">
+                    <label for="title">Title:</label>
+                    <input type="text" id="title" name="title" value="<%=idlisting.title%>" required
+                        class="form-control">
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a title name</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description" required
+                        class="form-control"><%=idlisting.description%></textarea>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a short description</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label for="image">Image URL:</label>
+                    <input type="text" id="image" name="image" value="<%=idlisting.image.url%>" required
+                        class="form-control">
+                </div>
+
+                <div class="price-and-country">
+                    <div class="new-route-form-input">
+                        <label for="price">Price (₹):</label>
+                        <input type="number" id="price" name="price" value="<%=idlisting.price%>" required
+                            class="form-control">
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Please enter a valid price</div>
+                    </div>
+
+                    <div class="new-route-form-input">
+                        <label for="country">Country:</label>
+                        <input type="text" id="country" name="country" value="<%=idlisting.country%>" required
+                            class="form-control">
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Enter a valid country name</div>
+                    </div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label for="location">Location:</label>
+                    <input type="text" id="location" name="location" value="<%=idlisting.location%>" required
+                        class="form-control">
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Enter a valid location</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <button type="submit">Repost</button>
+                </div>
+            </form>
+        </div>
+    </body>
+</file>
+
+<file path="views/listings/index.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+    <body>
+        <div class="index-route-cards">
+            <%for(let listing of allListings){%>
+                <a class="listing-link" href="/listings/<%=listing._id%>">
+                    <div class="card" style="width: 18rem;">
+                        <img src="<%=listing.image.url%>" class="card-img-top">
+                        <div class="card-body">
+                            <h5 class="card-title">
+                                <%=listing.title%>
+                            </h5>
+                            <p class="card-text">
+                                &#8377;<%=listing.price.toLocaleString("en-IN")%> / night</p>
+
+                        </div>
+                    </div>
+                </a>
+
+                <%}%>
+        </div>
+    </body>
+</file>
+
+<file path="views/listings/new.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+    <!-- see sare inputs ke andr "required" likha taki form bharte waqt wo blank na rahe usse bharna mandatary ho-->
+    <!-- but required se jo message show hoga that depends on browser to browser -->
+    <!-- isliye hum khudka "required" keyword set krenge using bootstrap taki hr browser me same message show ho -->
+
+    <!-- goto bootstrap->forms->validation    to read documentation  -->
+    <!-- step-1   add "novalidate" attribute and add class="needs-validation" in your form tag -->
+    <!-- step-2   add "required" attribute and class="form-control" in every input where you want that validation -->
+    <!-- step-3   add class="form-label"  in every label and add JAVASCRIPT CODE FROM DOCUMENTATION in you app.js file-->
+
+    <!-- step-4   optional if you want to show success and faillure text
+     make a div with a text and give it class="valid-feedback" to show text when correct data entered
+     or make a div with a text and give it class="nonvalid-feedback" to show text when incorrect data entered-->
+
+    <!-- also make sure bootstrap cdn are added , js file and boilerplate.ejs files are properly linked-->
+
+    <body>
+        <div class="new-route-container">
+            <h2>Create a New Listing</h2>
+            <!-- method = post because we are creating a new listing and sending it to server at /listings -->
+            <!-- enctype="multipart/form-data" is used to send files(ex:photos) to server -->
+            <form class="new-form needs-validation" method="post" action="/listings" novalidate enctype="multipart/form-data">    
+                <div class="new-route-form-input">
+                    <label class="form-label" for="title">Title:</label>
+                    <input class="form-control" type="text" id="title" name="title" placeholder="Add a Catchy Title"
+                        required>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a title name</div>
+                </div>
+
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="description">Description:</label>
+                    <textarea class="form-control" id="description" name="description" placeholder=""
+                        required></textarea>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Please enter a short description</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="image">Upload Image:</label>
+                    <input class="form-control" type="file" id="image" name="listing[image]" accept="image/*" placeholder="Enter image URL/Link">
+                </div>
+
+                <div class="price-and-country">
+                    <div class="new-route-form-input">
+                        <label class="form-label" for="price">Price (₹):</label>
+                        <input class="form-control" type="number" id="price" name="price" placeholder="1200" required>
+
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Please enter a valid price</div>
+                    </div>
+
+                    <div class="new-route-form-input">
+                        <label class="form-label" for="country">Country:</label>
+                        <input class="form-control" type="text" id="country" name="country" placeholder="India"
+                            required>
+                        <!-- to show text when incorrect data entered -->
+                        <div class="invalid-feedback">Enter a valid country name</div>
+                    </div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <label class="form-label" for="location">Location:</label>
+                    <input class="form-control" type="text" id="location" name="location" placeholder="Enter location"
+                        required>
+                    <!-- to show text when incorrect data entered -->
+                    <div class="invalid-feedback">Enter a valid location</div>
+                </div>
+
+                <div class="new-route-form-input">
+                    <button type="submit">Submit</button>
+                </div>
+            </form>
+        </div>
+    </body>
+</file>
+
+<file path="public/css/style.css">
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    display: flex;
+    flex-direction: column;
+}
+
+.container {
+    flex: 1;
+}
+
+
+
+
+/* Navbar */
+.navbar {
+    height: 4rem;
+    display: flex;
+    align-items: center;
+}
+
+.fa-compass {
+    color: #fe424d;
+    font-size: 2rem;
+}
+
+.navbar-nav a {
+    color: #222;
+}
+
+
+
+
+
+/* new.ejs */
+
+.new-route-container {
+    /* text-align: center; */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.new-route-container h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+}
+
+.new-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90%;
+    max-width: 600px;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    /* gap: 1rem; */
+}
+
+.new-route-form-input {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0.75rem 0;
+}
+
+.new-form label {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.new-form input,
+.new-form textarea {
+    border-radius: 10px;
+    border: 1px solid #222;
+    padding: 0.5rem;
+    width: 100%;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+/* .new-form input:focus,
+.new-form textarea:focus {
+    outline: none;
+    border-color: #fe636d;
+    box-shadow: 0 0 5px rgba(200, 56, 56, 0.318);
+} */
+
+.price-and-country {
+    display: flex;
+    justify-content: space-between;
+    gap: 3rem;
+    width: 100%;
+}
+
+.new-form button {
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
+    background-color: #fe424d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    align-self: center;
+    margin-top: 1rem;
+}
+
+.new-form button:hover {
+    background-color: #d13842;
+}
+
+
+
+
+
+/* index route cards */
+.index-route-cards {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 30px;
+    margin-top: 3rem;
+}
+
+.index-route-cards .card {
+    border: none;
+}
+
+.index-route-cards .card-img-top {
+    height: 15rem;
+    border-radius: 10px;
+    width: 100%;
+    object-fit: cover;
+    transition: 0.3s ease-out;
+}
+
+.index-route-cards .card-body {
+    min-height: 7rem;
+    padding-left: 0;
+}
+
+.index-route-cards .listing-link {
+    text-decoration: none;
+}
+
+.index-route-cards .card-img-top:hover {
+    opacity: 0.8;
+}
+
+
+
+/* show-route */
+
+.show-route-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 4rem 1rem;
+    min-height: 100vh;
+}
+
+.show-route-card {
+    background-color: #fff;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    width: 100%;
+    text-align: center;
+}
+
+.show-route-image {
+    width: 100%;
+    height: auto;
+    border-radius: 15px;
+    object-fit: cover;
+    margin-bottom: 1.5rem;
+    max-height: 300px;
+}
+
+.show-route-heading {
+    font-size: 1.8rem;
+    color: #2c3e50;
+    margin-bottom: 1rem;
+}
+
+.show-route-info {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+    margin-bottom: 2rem;
+}
+
+.show-route-info li {
+    font-size: 1rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid #eee;
+}
+
+.show-route-info li strong {
+    color: #444;
+    margin-right: 5px;
+}
+
+.show-route-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.show-route-buttons {
+    width: 100%;
+}
+
+.show-route-btn {
+    padding: 0.5rem 1.5rem;
+    width: 10rem;
+    font-size: 1rem;
+    font-weight: 500;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    text-decoration: none;
+    text-align: center;
+}
+
+.show-route-edit-btn {
+    background-color: #fe424d;
+    color: white;
+}
+
+.show-route-edit-btn:hover {
+    background-color: #d13842;
+}
+
+.show-route-delete-btn {
+    background-color: #2c3e50;
+    color: white;
+}
+
+.show-route-delete-btn:hover {
+    background-color: #1b2631;
+}
+
+.show-route-viewall-btn {
+    background-color: #f39c12;
+    color: white;
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.show-route-viewall-btn:hover {
+    background-color: #d68910;
+}
+
+
+
+ /* =================review form styles=================  */
+
+/* Review Card */
+.review-card {
+    max-width: 600px;
+}
+
+/* Review Form */
+.review-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.review-form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.review-label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #444;
+}
+
+/* Star Rating */
+.star-rating {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: center;
+    gap: 0.3rem;
+}
+
+.star-rating input {
+    display: none;
+}
+
+.star-rating label {
+    font-size: 2rem;
+    color: #ddd;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+/* Hover effect */
+.star-rating label:hover,
+.star-rating label:hover ~ label {
+    color: #fe424d;
+}
+
+/* Selected stars */
+.star-rating input:checked ~ label {
+    color: #fe424d;
+}
+
+/* Comment Box */
+.review-form textarea {
+    border-radius: 10px;
+    border: 1px solid #222;
+    padding: 0.6rem;
+    resize: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.review-form textarea:focus {
+    outline: none;
+    border-color: #fe424d;
+    box-shadow: 0 0 5px rgba(254, 66, 77, 0.3);
+}
+
+/* Submit Button */
+.review-submit-btn {
+    align-self: center;
+    margin-top: 1rem;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .star-rating label {
+        font-size: 1.6rem;
+    }
+}
+
+
+
+
+/* show all reviews section */
+/* Reviews Section */
+.reviews-heading {
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Review Card */
+.review-card {
+    position: relative;
+    height: 100%;
+    background: #fff;
+    border-radius: 18px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    padding: 1rem;
+    height: 100%;
+}
+
+/* Card Body */
+.review-card-body {
+    height: 100%;
+    padding-bottom: 3rem; /* space for delete button */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Author */
+.review-author {
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+    color: #222;
+}
+
+/* Stars */
+.review-stars {
+    margin-bottom: 0.3rem;
+}
+
+.filled-star {
+    color: #fe424d;
+    font-size: 1.2rem;
+}
+
+.empty-star {
+    color: #ddd;
+    font-size: 1.2rem;
+}
+
+/* Review Text */
+.review-text {
+    font-size: 0.95rem;
+    color: #444;
+    line-height: 1.4;
+    overflow: hidden;
+}
+
+/* Delete Button */
+.review-delete-btn {
+    position: absolute;
+    bottom: 1rem;
+    left: 1rem;
+
+    background-color: #fe424d; /* matches your theme */
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+/* Hover effect */
+.review-delete-btn:hover {
+    background-color: #d13842;
+}
+
+/* Responsive */
+@media (max-width: 576px) {
+    .review-card {
+        padding: 1.2rem;
+    }
+}
+
+
+
+
+/* signup.ejs and login.ejs */
+
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-container h2 {
+    margin-bottom: 2rem;
+    font-size: 2rem;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90%;
+    max-width: 500px;
+    padding: 2rem;
+    border-radius: 20px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.auth-form-input {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    margin: 0.75rem 0;
+}
+
+.auth-form label {
+    font-weight: 500;
+    margin-bottom: 0.2rem;
+}
+
+.auth-form input {
+    border-radius: 10px;
+    border: 1px solid #222;
+    padding: 0.5rem;
+    width: 100%;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.auth-form button {
+    padding: 0.6rem 1.5rem;
+    font-size: 1rem;
+    background-color: #fe424d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    align-self: center;
+    margin-top: 1rem;
+}
+
+.auth-form button:hover {
+    background-color: #d13842;
+}
+</file>
+
+<file path="routes/review.js">
+//1. require express and creating router
+//2. replace all app.****() with router.****()
+//3. removed /listings/:id/reviews from all routes because we are already using it in app.use("/listings/:id/reviews",reviewRoutes); in index.js
+//4. export router at the end of file
+
+// New problem : id of listing is not available in review.js file because we are using it in app.use("/listings/:id/reviews",reviewRoutes); so to make it available in review.js file we will use merge params:true in review.js file
+// ie: instead of just "router = express.Router();" we will use "router = express.Router({ mergeParams: true });"
+const express = require('express');
+const router = express.Router({ mergeParams: true }); 
+
+//5.require all the models and schema and utils which are used in this file(by the routes) 
+//6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
+
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
+
+const Listing = require('../models/listing.js');
+const Review = require('../models/review.js');
+const asyncwrap = require("../utils/wrapasync.js");
+const { validatereview } = require("../middleware.js");  //importing validatereview function from middleware.js to use it here in our routes to validate the review form data from server side using joi schema
+const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
+const { isReviewAuthor } = require("../middleware.js");  //importing isReviewAuthor function from middleware.js to use it here in our routes to check if user is the author of this review or not
+
+const reviewcontroller = require("../controllers/reviewcontroller.js"); //importing reviewcontroller.js file to use its functions here in our routes
+
+
+
+
+// our all review routes
+// post route to add review for a particular listing
+router.post("/",isLoggedIn, validatereview, asyncwrap(reviewcontroller.createReview));
+
+// delete route to delete a review 
+router.delete("/:reviewid",isLoggedIn ,isReviewAuthor ,asyncwrap(reviewcontroller.deleteReview));
+
+
+module.exports = router;
+</file>
+
+<file path="utils/wrapasync.js">
+// this is a function similar to try catch method that i will use to wrap all async code in index.js to prevent any asyncronous errors from crashing my server
+// it takes a function as input and returns a function which handles any error occured inside the async function and passes it to next() middleware of express
+// so that it can be handled in our error handling middleware in index.js
+
+function asyncwrap(fn){
+    return function(req,res,next){
+        fn(req,res,next).catch((err) => next(err));
+    }
+}
+
+module.exports = asyncwrap;
+</file>
+
+<file path="schema.js">
+// see joi website and see code written there how to use joi
+
+// basically agar koi devloper banda hopscotch ya postman se chahe to wo form me ek ya do chiz fill krke baki khali chodkar submit kar sakta hai
+// OR postman or hopscotch se khali form bhi submit ho sakta hai 
+// aur koi error bhi nhi ayga ki form pura bharo aisa, bcoz wo server side se form bhar rha and hamne sirf client side(ie:webpage) se koi khali form na bhare wo handle kiya hai
+
+// therefore it is also important to handle schema validation from server side 
+// and joi do this work
+
+const Joi = require('joi');
+
+module.exports.listingSchema = Joi.object({
+    // No more "listing" object, just the fields directly
+    title: Joi.string().required(),
+    description: Joi.string().required(),
+    location: Joi.string().required(),
+    country: Joi.string().required(),
+    price: Joi.number().required().min(0),
+    image: Joi.object({
+        filename: Joi.string().required(),
+        url: Joi.string().required()
+    }).optional()  // Allow image to be optional, as multer will handle file uploads
+});
+
+
+// review schema validation using JOI same as above because we also want that no one should be able to submit review form without rating and comment from server side 
+module.exports.reviewSchema = Joi.object({
+    //a review object with rating and comment fields
+    review: Joi.object({
+        rating: Joi.number().required().min(1).max(5),
+        comment: Joi.string().required()
+    }).required()
+});
+
+// now we will import this reviewSchema in index.js and will create a function similar to validatelisting function there and will use that function as middleware in review route in index.js
+</file>
+
+<file path="models/review.js">
+// we have to create a schema for data of reviews given by people on different hotels
+
+const mongoose = require('mongoose');
+const { Schema } = mongoose;
+
+// we dont need to setup connection here again, as we are just writing schema here , not using any insert/update/delete functionality of mongoose
+
+const reviewschema = new Schema({
+    comment : {
+        type : String
+    },
+    rating : {
+        type : Number,
+        min : 1,
+        max : 5,
+        default : 3
+    },
+    createdate : {
+        type : Date,
+        default : Date.now()
+    },
+    author : {
+        type : Schema.Types.ObjectId,
+        ref : "user"  //referencing user model here to get the details of the user who wrote this review
+    }
+})
+
+// now we will create model->"review" for this schema and export it
+const review = mongoose.model("review", reviewschema);
+module.exports = review;
+
+// Now we want that each listing can have multiple reviews , so we will import this review schema in listing schema and will use it as an array of subdocuments in listing schema
+// ---------we will store object Ids of reviews in listing schema---------
+</file>
+
+<file path="routes/listing.js">
+//1. require express and creating router
+//2. replace all app.****() with router.****()
+//3. remove /listings from all routes because we are already using it in app.use("/listings",listingRoutes); in index.js
+//4. export router at the end of file
+
+const express = require("express");
+const router = express.Router();
+
+//5.require all the models and schema and utils which are used in this file(by the routes) 
+//6.slightly changing the path -> ex: "./models/listing.js" to "../models/listing.js" because we are now in routes folder and models folder is outside of it
+
+const methodOverride = require('method-override');
+router.use(methodOverride('_method'));
+
+const Listing = require("../models/listing.js"); 
+const asyncwrap = require("../utils/wrapasync.js");
+const { validatelisting } = require("../middleware.js");  //importing validatelisting function from middleware.js to use it here in our routes to validate the form data from server side using joi schema
+const { isLoggedIn } = require("../middleware.js");  //importing isLoggedIn function from middleware.js to use it here in our routes to check if user is logged in or not
+const { isOwner } = require("../middleware.js");  //importing isOwner function from middleware.js to use it here in our routes to check if currently logged in user is the owner of the listing or not
+
+const listingcontroller = require("../controllers/listingcontroller.js");  //importing listingcontroller from controllers/listing.js to use it here in our routes to handle the logic of the routes
+
+//7. multer is used to handle file uploads in express.js. It is a middleware that processes multipart/form-data, which is used for uploading files(ex: photos). It makes the uploaded files available in the req.file or req.files object, depending on whether a single file or multiple files are uploaded. In this code, multer is configured to store uploaded files in the "uploads/" directory.
+const multer = require("multer");
+const { storage } = require("../cloudConfig.js");
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } }); // 5 MB max
+
+
+
+// Our all listing routes
+// index route
+router.get("/", asyncwrap(listingcontroller.index));
+
+//new route
+router.get("/new", isLoggedIn, listingcontroller.renderNewForm);
+
+//create route
+router.post("/",isLoggedIn, upload.single('listing[image]'), validatelisting, asyncwrap(listingcontroller.createListing));  
+
+// show route
+router.get("/:id", asyncwrap(listingcontroller.showListing));
+
+// edit route
+router.get("/:id/edit",isLoggedIn, isOwner, asyncwrap(listingcontroller.renderEditForm));
+
+//update route
+router.put("/:id",isLoggedIn, isOwner, upload.single('listing[image]'), validatelisting , asyncwrap(listingcontroller.updateListing));
+
+// delete route
+router.delete("/:id", isLoggedIn, isOwner, asyncwrap(listingcontroller.deleteListing));
+
+module.exports = router;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// ***TO understand the below code(concepts of error and async handling) see this project codes before routing***
+
+
+
+
+// //  Now as we are using databse we may get async errors ,like - price me number ke jgh string daal diya form me ___OR___ galat _id daal diya url me 
+// // so to handle such async errors we are making our wrapasync.js and custom error class inside UTILS folder
+// // importing custom error class
+
+// const ExpressError = require("./utils/ExpressError.js")
+
+// // importing here asyncwrap function
+
+// const asyncwrap = require("./utils/wrapasync.js");
+// const { error } = require("console");
+
+
+// // NOW jitne bhi async code hai sabko wrap krdo or send krdo as a input inside asyncwrap() function
+
+
+// //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+// //so to handle form validations from server side
+
+// const validatelisting = (req,res,next) => {
+//     let {error} = listingSchema.validate(req.body);
+//     if(error){
+//         let errMsg = error.details.map(el => el.message).join(",");
+//         throw new ExpressError(400, errMsg);
+//     }else{
+//         next();
+//     }
+// }
+</file>
+
+<file path="views/listings/show.ejs">
+<% layout("/layouts/boilerplate.ejs") %>
+
+    <body>
+
+
+        <div class="show-route-container">
+            <div class="show-route-card">
+                <img class="show-route-image" src="<%= idlisting.image.url %>" alt="Listing image">
+
+                <h3 class="show-route-heading">Listing Details</h3>
+                <ul class="show-route-info">
+                    <li><strong>Title:</strong>
+                        <%= idlisting.title %>
+                    </li>
+                    <li><strong>Owner:</strong>
+                        <%= idlisting.owner.username %>
+                    </li>
+                    <li><strong>Description:</strong>
+                        <%= idlisting.description %>
+                    </li>
+                    <li><strong>Price:</strong> ₹ <%= idlisting.price.toLocaleString("en-IN") %>
+                    </li>
+                    <li><strong>Location:</strong>
+                        <%= idlisting.location %>
+                    </li>
+                    <li><strong>Country:</strong>
+                        <%= idlisting.country %>
+                    </li>
+                </ul>
+
+                <div class="show-route-buttons">
+                    <div class="show-route-actions">
+                        <form method="get" action="/listings/<%= idlisting._id %>/edit">
+                            <button class="show-route-btn show-route-edit-btn">Edit</button>
+                        </form>
+                        <form method="post" action="/listings/<%= idlisting._id %>?_method=DELETE">
+                            <button class="show-route-btn show-route-delete-btn">Delete</button>
+                        </form>
+                    </div>
+                    <div class="show-route-actions">
+                        <a href="/listings" class="show-route-btn show-route-viewall-btn">View All Listings</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- review section -->
+        <!-- koi bhi form ko bina rating and comment likhe submit na kare ye ensure krne kliye we will do both client-side and server-side validation -->
+        <!-- client-side validation is done in the form itself(to learn how -> read the comments in new.ejs) & server-side validation is done using JOI -->
+        <!-- for server side validation->1.make schema using JOI in schema.js->2.import it in index.js and write a function similar to validatelisting ->3.pass this function as a middleware in review route -->
+        <div class="show-route-container">
+            <div class="show-route-card review-card">
+                <h4 class="show-route-heading">Leave a Review</h4>
+
+                <!-- after clicking the submit button the form will be submitted to route /listings/:id/reviews -->
+                <form class="needs-validation review-form" action="/listings/<%=idlisting._id%>/reviews" method="post" novalidate>
+
+                    <!-- Rating -->
+                        <div class="review-form-group">
+                            <label class="review-label">Rating</label>
+
+                    <div class="star-rating" >
+                    <input type="radio" name="review[rating]" id="star5" value="5">
+                    <label for="star5">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star4" value="4">
+                    <label for="star4">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star3" value="3">
+                    <label for="star3">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star2" value="2">
+                    <label for="star2">&#9733;</label>
+
+                    <input type="radio" name="review[rating]" id="star1" value="1" >
+                    <label for="star1">&#9733;</label>
+                    
+                </div>
+            </div>
+
+            <!-- Comment -->
+            <div class="review-form-group">
+                <label for="comment" class="review-label">Your Review</label>
+                <textarea
+                    id="comment"
+                    name="review[comment]"
+                    rows="4"
+                    placeholder="Share your experience..."
+                    required></textarea>
+                    <div class="invalid-feedback">Please write something before submitting.</div>
+            </div>
+
+            <!-- Button -->
+            <button type="submit" class="show-route-btn show-route-edit-btn review-submit-btn">
+                Submit Review
+            </button>
+
+            </form>
+            </div>
+        </div>
+        
+        <hr>
+
+
+        <!-- All Reviews Section where all reviews are displayed of this listing -->
+        <!-- All Reviews Section -->
+<div class="reviews-section container my-5">
+
+    <h4 class="reviews-heading mb-4">All Reviews</h4>
+
+    <div class="row g-4">
+        <% for(let review of idlisting.reviews){ %>
+
+            <div class="col-lg-4 col-md-6 col-sm-12">
+                <div class="review-card">
+
+                    <div class="review-card-body">
+                        <p class="review-author"><%= review.author.username %></p>
+
+                        <!-- Star Rating Display -->
+                        <div class="review-stars">
+                            <% for(let i = 1; i <= 5; i++){ %>
+                                <span class="<%= i <= review.rating ? 'filled-star' : 'empty-star' %>">
+                                    &#9733;
+                                </span>
+                            <% } %>
+                        </div>
+
+                        <p class="review-text">
+                            <%= review.comment %>
+                        </p>
+
+                        <!-- Now we will add a delete button -> its process is -> 1.on clicking delete, it will send a DELETE request to /listings/:id/reviews/:reviewId to delete the review -->
+                         <form action="/listings/<%=idlisting._id%>/reviews/<%=review._id%>?_method=DELETE" method="post">
+                            <button class="review-delete-btn">Delete Review</button>
+                         </form>
+                    </div>
+
+                    </div>
+                    </div>
+                    <% } %>
+                    </div>
+                    </div>
+
+
+    </body>
+</file>
+
+<file path="models/listing.js">
+// here we are creating a schema for our listings collection in our database
+const DEFAULT_IMAGE = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRxkCoVgzcQBR2gm-5O7rZHG91jPS1YMgHcIj1gORYvKg&s=10";
+const mongoose = require('mongoose');
+const review = require('./review');
+
+const listingschema = new mongoose.Schema({
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    image: {
+        url: {
+            type: String,
+            default: DEFAULT_IMAGE,
+            set: (v) => v === "" ? DEFAULT_IMAGE : v,
+        },
+        filename: {
+            type: String,
+            default: "default",
+        },
+    },
+    price: { type: Number, required: true },
+    location: { type: String, required: true },
+    country: { type: String, required: true },
+    // now adding reviews array to listing schema to store object Ids of each reviews for that listing
+    reviews: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'review',
+        }
+    ],
+    owner: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'user',
+        required: true
+    }
+})
+
+// now we will setup a middleware to delete all reviews associated with a listing when that listing is deleted
+listingschema.post('findOneAndDelete', async function(listing) {
+    if (listing) {
+        // delete all reviews whose ids are in listing.reviews array 
+        await review.deleteMany({ _id: { $in: listing.reviews } });
+    }
+})
+
+
+const Listing = mongoose.model("Listing", listingschema);
+module.exports = Listing;
+</file>
+
+<file path="package.json">
+{
+  "engines": {
+    "node": "22.20.0"
+  },
+  "dependencies": {
+    "cloudinary": "^1.41.3",
+    "connect": "^3.7.0",
+    "connect-flash": "^0.1.1",
+    "connect-mongo": "^5.1.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.3",
+    "ejs": "^3.1.10",
+    "ejs-mate": "^4.0.0",
+    "express": "^5.1.0",
+    "express-session": "^1.19.0",
+    "joi": "^18.0.1",
+    "method-override": "^3.0.0",
+    "mongo": "^0.1.0",
+    "mongoose": "^8.16.0",
+    "multer": "^2.4.0",
+    "multer-storage-cloudinary": "^4.0.0",
+    "passport": "^0.7.0",
+    "passport-local": "^1.0.0",
+    "passport-local-mongoose": "^8.0.0"
+  }
+}
+</file>
+
+<file path="index.js">
+// first of all we downloaded some modules
+// 1.express
+// 2ejs
+// 3.mongooose                       --------> all by using the syntax -> npm i <modulename>
+// 4.ejs-mate
+// 5.method-override
+// 6.nodemon(installing it globally)
+// 7.joi
+// 8.dotenv
+// 9.connect-mongo
+// 10.express-session
+// 11.connect-flash
+// 12.passport
+// 13.passport-local
+// 14.passport-local-mongoose
+// 15.multer
+// 16.npm i cloudinary multer-storage-cloudinary
+
+
+
+// requiring dotenv to use .env file
+require('dotenv').config();
+
+//requiring express
+const express = require("express");    
+const app = express();
+const port = 8080;
+ 
+// requiring path to join to paths of files
+const path = require("path");  
+
+//normally in form tag we can only use method=GET or POST but for CRUD operations we need to use PUT,DELETE,PATCH also.
+//so requiring it to use method=PUT,DELETE,PATCH in form tag while performing CRUD operations 
+const methodOverride = require('method-override');
+app.use(methodOverride('_method'));
+
+// similar as includes -> used to create boilerplate or layouts for our each page
+// ex: har page me navbar and footer and bootstrap/g fonts ka link wgr to same hi rhega to wo sare chize ek boilerplate.ejs me likha aur baki jgh usko import kr lunga simply
+const ejsmate = require('ejs-mate');
+app.engine("ejs", ejsmate);
+
+
+
+//importing mongoose and setting connection with databse
+const mongoose = require('mongoose');
+// url of cloud database from .env file
+const dburl = process.env.ATLASDB_URL;
+
+async function main() {
+    await mongoose.connect("mongodb://127.0.0.1:27017/wanderlust");   // wanderlust here is name of my DB rest all remains same in URL
+}
+main().then(() => {
+    console.log("connected to database successfully")
+})
+    .catch(err => console.log(err));
+
+
+
+
+// setting view engine to ejs -> setup for using EJS
+app.set("view engine", "ejs");         
+app.set("views", path.join(__dirname, "views"));
+
+// telling that my CSS n JS files are in public folder-> and i can use them from anywhere
+app.use(express.static(path.join(__dirname, "public")));    
+
+//Code so that js can read json or url encoded files coming from DB
+app.use(express.urlencoded({ extended: true }));   
+app.use(express.json());
+
+
+// ------------------------------Session and Flash Messages----------------------------------
+// requiring express-session
+const session = require("express-session");
+// setting up session options and using it in app
+const sessionOptions = {
+    secret: "thisshouldbeabettersecret!",
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        expires : Date.now() + 1000 * 60 * 60 * 24 * 7, // cookie will expire in 7 days
+        maxAge : 1000 * 60 * 60 * 24 * 7, // cookie will expire in 7 days
+        httpOnly : true, // cookie cannot be accessed by client side js
+    }
+};
+app.use(session(sessionOptions));
+
+
+// requiring connect-flash to show flash messages (Implementing -> whenever a new listing is added, a flash message will be shown)
+const flash = require("connect-flash");
+app.use(flash());
+
+// ------------------------------Authentication Part------------------------------
+// requiring passport and passport-local for authentication
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+const User = require("./models/user.js"); // requiring user model to use it in passport-local-mongoose
+
+app.use(passport.initialize());  // a middleware for initializing passport
+app.use(passport.session());   // passport.session -> a web applixation needs the ability to indentify user as they browse from page to page, so we need to use session to store user info in session and passport.session() will help us to do that
+passport.use(new LocalStrategy(User.authenticate())); // User.authenticate() -> a method provided by passport-local-mongoose to authenticate user
+
+passport.serializeUser(User.serializeUser()); // serializeUser -> a method provided by passport-local-mongoose to serialize user info into session
+passport.deserializeUser(User.deserializeUser()); // deserializeUser -> a method provided by passport-local-mongoose to deserialize user info from session
+
+
+//middleware made to access flash messages and current user in all ejs files
+app.use((req, res, next) => {
+    res.locals.success = req.flash("success");
+    res.locals.error = req.flash("error");
+    res.locals.currentUser = req.user; // to access current user in all ejs files
+    next();
+});
+
+
+
+
+app.listen(port, () => {
+    console.log("listening at port 8080");
+})
+
+
+
+// Now inserting initial sample data into our database in seprate folder init go see there then come back
+
+// TILL HERE THE CODE ABOVE WILL BE SAME IN EVERY FILE OR EVERY WEBSITE
+
+// -------------------------------------------------------------------------------------------
+// NOW CODES SPECIFICALLY FOR THIS WEBSITE
+// home route
+app.get("/", (req, res) => {
+    res.render("listings/home.ejs");
+})
+
+// --------------------------------------------------------------------------------------------------
+//listing routes are in seprate file named listing.js inside routes folder , so importing it here
+const listingRoutes = require("./routes/listing.js");
+// now using it here
+app.use("/listings",listingRoutes);
+
+
+//review routes are in seprate file named review.js inside routes folder , so importing it here
+const reviewRoutes = require("./routes/review.js");
+// now using it here
+app.use("/listings/:id/reviews",reviewRoutes);
+
+
+//user routes are in seprate file named user.js inside routes folder , so importing it here
+const userRoutes = require("./routes/user.js");
+// now using it here
+app.use("/", userRoutes);
+// ---------------------------------------------------------------------------------------------------
+
+
+// IF user enters any other route than above routes, then to show "page not found" error
+app.use((req,res,next)=>{
+    next(new ExpressError(404,"PAGE NOT FOUND"));
+});
+
+// ERROR HANDLING MIDDLEWARE
+// It's code is same for both async & non-async error
+app.use((err,req,res,next) =>{
+    let {status = 500 , message = "Something went wrong"} = err;
+    // instead of sending status and message we will render "error.ejs"
+    res.render("error.ejs",{message});
+})
+</file>
+
+</files>

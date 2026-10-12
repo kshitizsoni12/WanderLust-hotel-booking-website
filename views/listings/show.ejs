@@ -5,7 +5,7 @@
 
         <div class="show-route-container">
             <div class="show-route-card">
-                <img class="show-route-image" src="<%= idlisting.image %>" alt="Listing image">
+                <img class="show-route-image" src="<%= idlisting.image.url %>" alt="Listing image">
 
                 <h3 class="show-route-heading">Listing Details</h3>
                 <ul class="show-route-info">
@@ -13,7 +13,7 @@
                         <%= idlisting.title %>
                     </li>
                     <li><strong>Owner:</strong>
-                        <%= idlisting.owner.username %>
+                        <%= idlisting.owner ? idlisting.owner.username : "Unknown" %>
                     </li>
                     <li><strong>Description:</strong>
                         <%= idlisting.description %>
@@ -116,7 +116,7 @@
                 <div class="review-card">
 
                     <div class="review-card-body">
-                        <p class="review-author"><%= review.author.username %></p>
+                        <p class="review-author"><%= review.author ? review.author.username : "Anonymous" %></p>
 
                         <!-- Star Rating Display -->
                         <div class="review-stars">

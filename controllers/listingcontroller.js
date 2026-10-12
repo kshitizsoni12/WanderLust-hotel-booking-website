@@ -17,19 +17,14 @@ module.exports.createListing = async (req, res) => {
     //so to handle form validations from server side
     //thats why we called our function "validatelisting" above see there
     
+    const { title, description, price, location, country } = req.body;
+    const newListing = new Listing({ title, description, price, location, country });
+    newListing.owner = req.user._id;
 
-
-    let { title, description, image, price, location, country } = req.body;
-    let newlisting = new Listing({
-        title: title,
-        description: description,
-        image: image,
-        price: price,
-        location: location,
-        country: country,
-        owner: req.user._id  //storing the id of the user who created this listing in the "owner" field of that particular listing 
-    })
-    await newlisting.save();
+    if (req.file) {
+        newListing.image = { url: req.file.path, filename: req.file.filename };
+    }
+    await newListing.save();
 
     //adding flash message -> "new listing added successfully"
     req.flash("success", "new listing added successfully");  //key="success"
@@ -69,16 +64,17 @@ module.exports.updateListing = async (req, res) => {
     //thats why we called our function "validatelisting" above see there
 
     
-    let { id } = req.params;
-    let { title, description, image, price, location, country } = req.body;
-    await Listing.findByIdAndUpdate(id, {
-        title: title,
-        description: description,
-        image: image,
-        price: price,
-        location: location,
-        country: country,
-    });
+    const { id } = req.params;
+    const { title, description, price, location, country } = req.body;
+    const listing = await Listing.findByIdAndUpdate(id, { title, description, price, location, country }, { new: true });
+
+    // only replace the image if a new file was uploaded
+    if (req.file) {
+        listing.image = { url: req.file.path, filename: req.file.filename };
+        await listing.save();
+    }
+
+    req.flash("success", "Listing updated!");
     res.redirect(`/listings/${id}`);
 }
 

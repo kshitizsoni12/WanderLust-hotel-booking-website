@@ -18,6 +18,10 @@ const reviewschema = new Schema({
     createdate : {
         type : Date,
         default : Date.now()
+    },
+    author : {
+        type : Schema.Types.ObjectId,
+        ref : "user"  //referencing user model here to get the details of the user who wrote this review
     }
 })
 

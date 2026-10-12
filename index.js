@@ -87,13 +87,6 @@ app.use(session(sessionOptions));
 // requiring connect-flash to show flash messages (Implementing -> whenever a new listing is added, a flash message will be shown)
 const flash = require("connect-flash");
 app.use(flash());
-//middleware to set flash messages in res.locals so that we can access them in all ejs files
-app.use((req, res, next) => {
-    res.locals.success = req.flash("success");
-    res.locals.error = req.flash("error");
-    next();
-});
-
 
 // ------------------------------Authentication Part------------------------------
 // requiring passport and passport-local for authentication
@@ -107,6 +100,16 @@ passport.use(new LocalStrategy(User.authenticate())); // User.authenticate() -> 
 
 passport.serializeUser(User.serializeUser()); // serializeUser -> a method provided by passport-local-mongoose to serialize user info into session
 passport.deserializeUser(User.deserializeUser()); // deserializeUser -> a method provided by passport-local-mongoose to deserialize user info from session
+
+
+//middleware made to access flash messages and current user in all ejs files
+app.use((req, res, next) => {
+    res.locals.success = req.flash("success");
+    res.locals.error = req.flash("error");
+    res.locals.currentUser = req.user; // to access current user in all ejs files
+    next();
+});
+
 
 
 

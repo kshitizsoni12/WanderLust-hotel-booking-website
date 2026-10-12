@@ -1,0 +1,90 @@
+const Listing = require('../models/listing');
+
+// index route
+module.exports.index = async (req, res) => {
+    const allListings = await Listing.find({});
+    res.render("listings/index.ejs", { allListings })
+}
+
+// new route
+module.exports.renderNewForm = (req, res) => {
+    res.render("listings/new.ejs");
+}
+
+// create route
+module.exports.createListing = async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+    
+
+
+    let { title, description, image, price, location, country } = req.body;
+    let newlisting = new Listing({
+        title: title,
+        description: description,
+        image: image,
+        price: price,
+        location: location,
+        country: country,
+        owner: req.user._id  //storing the id of the user who created this listing in the "owner" field of that particular listing 
+    })
+    await newlisting.save();
+
+    //adding flash message -> "new listing added successfully"
+    req.flash("success", "new listing added successfully");  //key="success"
+    res.redirect("/listings")
+}
+
+// show route
+module.exports.showListing = async (req, res) => {
+    let { id } = req.params;
+    //populate("reviews") is a mongoose method which is used here to get all the reviews of that particular listing whose id is given in url , basically it fetches all the details (rating and comment) of reviews whose object ids are stored in "reviews" array of that particular listing 
+    // without populate method we will only get array of object ids of reviews not their details such as (comment and rating)
+    const idlisting = await Listing.findById(id).populate({path: "reviews", populate: {path: "author"}}).populate("owner");  //populate("owner") is a mongoose method which is used here to get the details of the owner of that particular listing whose id is given in url , basically it fetches all the details (username and email) of owner whose object id is stored in "owner" field of that particular listing
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
+    res.render("listings/show.ejs", { idlisting })
+}
+
+// edit route
+module.exports.renderEditForm = async (req, res) => {
+    let { id } = req.params;
+    const idlisting = await Listing.findById(id);
+    //if user enters wrong listing id in url then we will show a flash messsage and redirect him to /listings page
+    if(!idlisting) {
+        req.flash("error", "listing you requested for does not exist");  //key="error"
+        return res.redirect("/listings");
+    }
+    res.render("listings/edit.ejs", { idlisting })
+}
+
+// update route
+module.exports.updateListing = async (req, res) => {
+    //postman or hopscotch se khali form , ya ek do field bas bahrke bhi submit ho sakta hai
+    //so to handle form validations from server side
+    //thats why we called our function "validatelisting" above see there
+
+    
+    let { id } = req.params;
+    let { title, description, image, price, location, country } = req.body;
+    await Listing.findByIdAndUpdate(id, {
+        title: title,
+        description: description,
+        image: image,
+        price: price,
+        location: location,
+        country: country,
+    });
+    res.redirect(`/listings/${id}`);
+}
+
+// delete route
+module.exports.deleteListing = async (req, res) => {
+    let { id } = req.params;
+    await Listing.findByIdAndDelete(id);
+    res.redirect("/listings");
+}
